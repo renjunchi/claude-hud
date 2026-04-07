@@ -30,23 +30,23 @@ Current ▰▰▰▱▱▱▱▱▱▱ 32% ↻2 hr 35 min │ All ▰▰▰▰�
 curl -fsSL https://bun.sh/install | bash
 ```
 
-### 2. 克隆并安装
+### 2. 一键安装
 
 ```bash
-git clone ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git
-cd claude-hud
-bun install
+bash -c 'T=~/.claude/plugins/claude-hud; [ -d "$T/.git" ] && git -C "$T" pull --ff-only || { rm -rf "$T" && git clone ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git "$T"; }; "$T/install.sh"'
 ```
 
-### 3. 配置 Claude Code
+这会自动 clone（或更新）到 `~/.claude/plugins/claude-hud`，安装依赖并配置 statusline。
 
-```bash
-bun run src/index.ts setup
+> 已安装过？再次运行同一命令即可更新，无需手动删除。
+
+**Windows (PowerShell)：**
+
+```powershell
+$T="$env:USERPROFILE\.claude\plugins\claude-hud"; if(Test-Path "$T\.git"){git -C $T pull --ff-only}elseif(Test-Path $T){Remove-Item -Recurse -Force $T; git clone ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git $T}else{git clone ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git $T}; & "$T\install.ps1"
 ```
 
-这会自动将 statusline 配置写入 `~/.claude/settings.json`。
-
-### 4. 重启 Claude Code
+### 3. 重启 Claude Code
 
 关闭当前 Claude Code 会话，重新打开。底部应该出现 claude-hud 状态栏：
 
