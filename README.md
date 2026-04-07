@@ -33,7 +33,7 @@ curl -fsSL https://bun.sh/install | bash
 ### 2. 克隆并安装
 
 ```bash
-git clone <your-repo-url> claude-hud
+git clone ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git
 cd claude-hud
 bun install
 ```
@@ -123,14 +123,14 @@ CLAUDE_HUD_PRESET=minimal
 | Context 进度条 | ✓ | ✓ | ✓ |
 | Git 分支 | ✓ | ✓ | ✓ |
 | Rate Limits | ✓ | ✓ | |
-| 活跃工具 | ✓ | | |
+| 活跃工具 | | | |
 | Token 用量 | | ✓ | |
 | 其他会话 | ✓ | ✓ | |
 
 ## 开发
 
 ```bash
-bun test          # 运行 123 个测试
+bun test          # 运行 112 个测试
 bun run build     # 构建 dist/claude-hud.js (~19KB)
 ```
 
