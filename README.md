@@ -33,7 +33,11 @@ curl -fsSL https://bun.sh/install | bash
 ### 2. 一键安装
 
 ```bash
-bash -c 'T=~/.claude/plugins/claude-hud; [ -d "$T/.git" ] && git -C "$T" pull --ff-only || { rm -rf "$T" && git clone ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git "$T"; }; "$T/install.sh"'
+REPO=ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git
+T=~/.claude/plugins/claude-hud
+[ -d "$T/.git" ] && git -C "$T" pull --ff-only \
+  || { rm -rf "$T" && git clone "$REPO" "$T"; }
+"$T/install.sh"
 ```
 
 这会自动 clone（或更新）到 `~/.claude/plugins/claude-hud`，安装依赖并配置 statusline。
@@ -43,7 +47,12 @@ bash -c 'T=~/.claude/plugins/claude-hud; [ -d "$T/.git" ] && git -C "$T" pull --
 **Windows (PowerShell)：**
 
 ```powershell
-$T="$env:USERPROFILE\.claude\plugins\claude-hud"; if(Test-Path "$T\.git"){git -C $T pull --ff-only}elseif(Test-Path $T){Remove-Item -Recurse -Force $T; git clone ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git $T}else{git clone ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git $T}; & "$T\install.ps1"
+$Repo = "ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git"
+$T = "$env:USERPROFILE\.claude\plugins\claude-hud"
+if (Test-Path "$T\.git") { git -C $T pull --ff-only }
+elseif (Test-Path $T) { Remove-Item -Recurse -Force $T; git clone $Repo $T }
+else { git clone $Repo $T }
+& "$T\install.ps1"
 ```
 
 ### 3. 重启 Claude Code
