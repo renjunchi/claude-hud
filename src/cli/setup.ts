@@ -72,9 +72,9 @@ export async function setup(): Promise<void> {
 
 function resolveCommand(): string {
   const mainPath = process.argv[1];
-  if (mainPath && (mainPath.endsWith(".ts") || mainPath.endsWith("/src/index.ts"))) {
-    // If already absolute, use as-is; otherwise resolve relative to cwd
-    const absPath = mainPath.startsWith("/") ? mainPath : join(process.cwd(), mainPath);
+  if (mainPath && (mainPath.endsWith(".ts") || mainPath.includes("src/index.ts") || mainPath.includes("src\\index.ts"))) {
+    const { resolve } = require("path");
+    const absPath = resolve(mainPath);
     return `bun ${absPath}`;
   }
 
