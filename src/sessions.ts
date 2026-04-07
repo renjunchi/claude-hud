@@ -5,10 +5,75 @@ export interface SessionInfo {
   sessionId: string;
   project: string;
   lastActivity: number; // timestamp ms
+  name?: string; // session name from session file
+}
+
+interface SessionFileInfo {
+  pid: number;
+  name?: string;
 }
 
 const HISTORY_PATH = join(homedir(), ".claude", "history.jsonl");
+const SESSIONS_DIR = join(homedir(), ".claude", "sessions");
 const ACTIVE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+
+// Cache for session PID map (refreshed every 5s)
+let pidMapCache: Map<string, SessionFileInfo> | null = null;
+let pidMapCacheTime = 0;
+const PID_MAP_CACHE_TTL_MS = 5_000;
+
+// Cache for process alive checks (refreshed every 2s)
+const aliveCache = new Map<number, { alive: boolean; checkedAt: number }>();
+const ALIVE_CACHE_TTL_MS = 2_000;
+
+/** Check if a process is still alive via signal 0 */
+export function isProcessAlive(pid: number): boolean {
+  const now = Date.now();
+  const cached = aliveCache.get(pid);
+  if (cached && now - cached.checkedAt < ALIVE_CACHE_TTL_MS) {
+    return cached.alive;
+  }
+
+  let alive: boolean;
+  try {
+    process.kill(pid, 0);
+    alive = true;
+  } catch (err: any) {
+    alive = err.code === "EPERM"; // EPERM = process exists but no permission
+  }
+
+  aliveCache.set(pid, { alive, checkedAt: now });
+  return alive;
+}
+
+/** Build sessionId → { pid, name } map from ~/.claude/sessions/*.json */
+export async function buildSessionPidMap(): Promise<Map<string, SessionFileInfo>> {
+  const now = Date.now();
+  if (pidMapCache && now - pidMapCacheTime < PID_MAP_CACHE_TTL_MS) {
+    return pidMapCache;
+  }
+
+  const map = new Map<string, SessionFileInfo>();
+  try {
+    const glob = new Bun.Glob("*.json");
+    for await (const file of glob.scan(SESSIONS_DIR)) {
+      try {
+        const content = await Bun.file(join(SESSIONS_DIR, file)).json();
+        if (content.sessionId && typeof content.pid === "number") {
+          map.set(content.sessionId, { pid: content.pid, name: content.name });
+        }
+      } catch {
+        // skip malformed files
+      }
+    }
+  } catch {
+    // sessions dir may not exist
+  }
+
+  pidMapCache = map;
+  pidMapCacheTime = now;
+  return map;
+}
 
 interface HistoryEntry {
   sessionId?: string;
@@ -77,8 +142,18 @@ export async function scanActiveSessions(currentTranscriptPath?: string): Promis
     }
   }
 
+  // Verify sessions are still alive via PID check
+  const pidMap = await buildSessionPidMap();
+  const results: SessionInfo[] = [];
+
+  for (const [sessionId, data] of sessions) {
+    const info = pidMap.get(sessionId);
+    if (info === undefined || !isProcessAlive(info.pid)) {
+      continue; // no session file or confirmed dead — skip
+    }
+    results.push({ sessionId, ...data, name: info.name });
+  }
+
   // Sort by most recent first
-  return Array.from(sessions.entries())
-    .map(([sessionId, data]) => ({ sessionId, ...data }))
-    .sort((a, b) => b.lastActivity - a.lastActivity);
+  return results.sort((a, b) => b.lastActivity - a.lastActivity);
 }

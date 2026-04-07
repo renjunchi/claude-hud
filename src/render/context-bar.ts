@@ -1,7 +1,7 @@
 import type { RenderContext } from "../types";
 import { getContextPercent, getModelName, getProjectName, getGitBranch, getRateLimit5h, getRateLimit7d, formatResetCountdown, formatResetAbsolute } from "../stdin";
 import { color, contextColor, bold, cyan, gray, dim } from "./colors";
-import { PRESETS } from "../presets";
+import { calcOutputSpeed, formatSpeed } from "./token-usage";
 
 const FILLED = "\u25b0"; // ▰
 const EMPTY = "\u25b1";  // ▱
@@ -15,7 +15,7 @@ function renderBar(percent: number, width: number): string {
 
 /** Render the main session line: [Model] | Context bar | ⎇ branch */
 export async function renderSessionLine(ctx: RenderContext): Promise<string> {
-  const preset = PRESETS[ctx.preset];
+  const preset = ctx.presetConfig;
   const parts: string[] = [];
 
   // Model name
@@ -47,12 +47,20 @@ export async function renderSessionLine(ctx: RenderContext): Promise<string> {
     parts.push(color(`⎇ ${branch}`, dim));
   }
 
+  // Output speed
+  if (preset.showSpeed) {
+    const speed = calcOutputSpeed(ctx.transcript);
+    if (speed !== null) {
+      parts.push(color(`⚡${formatSpeed(speed)}`, dim));
+    }
+  }
+
   return parts.join(color(" \u2502 ", gray)); // │ separator
 }
 
 /** Render rate limits line */
 export function renderRateLimitsLine(ctx: RenderContext): string | null {
-  const preset = PRESETS[ctx.preset];
+  const preset = ctx.presetConfig;
   if (!preset.showRateLimits) return null;
 
   const rl5h = getRateLimit5h(ctx.stdin);

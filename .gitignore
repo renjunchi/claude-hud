@@ -1,14 +1,24 @@
-# agentic-dev
-.claude/*.local.md
-.claude/*.local.json
-.worktrees/
-docs/worklist/archives/
-
 # dependencies
 node_modules/
 
 # build output
 dist/
 
-# bun
-bun.lockb
+# env / secrets
+.env
+.env.*
+
+# OS
+.DS_Store
+
+# TypeScript
+*.tsbuildinfo
+
+# test / coverage
+coverage/
+
+# agentic-dev
+.claude/*.local.md
+.claude/*.local.json
+.worktrees/
+docs/worklist/archives/

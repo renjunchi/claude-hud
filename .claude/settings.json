@@ -9,7 +9,8 @@
       "Bash(wc:*)", "Bash(sort:*)", "Bash(diff:*)",
       "Bash(echo:*)", "Bash(grep:*)", "Bash(which:*)",
       "Bash(pwd:*)", "Bash(date:*)", "Bash(file:*)",
-      "Bash(git rebase --continue:*)"
+      "Bash(git rebase --continue:*)",
+      "Bash(npm run:*)", "Bash(npm test:*)", "Bash(npx:*)"
     ],
     "deny": [
       "Bash(rm -rf /)", "Bash(rm -rf /*)", "Bash(rm -rf ~)",
@@ -19,7 +20,8 @@
     ],
     "ask": [
       "Bash(git merge:*)", "Bash(git rebase:*)", "Bash(git reset:*)",
-      "Bash(rm:*)", "Bash(curl:*)", "Bash(wget:*)", "Bash(docker:*)"
+      "Bash(rm:*)", "Bash(curl:*)", "Bash(wget:*)", "Bash(docker:*)",
+      "Bash(npm install:*)"
     ]
   },
   "hooks": {

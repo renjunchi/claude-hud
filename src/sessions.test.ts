@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { extractProjectName, extractSessionId, formatTimeAgo } from "./sessions";
+import { extractProjectName, extractSessionId, formatTimeAgo, isProcessAlive } from "./sessions";
 
 describe("extractProjectName", () => {
   test("extracts last path segment", () => {
@@ -44,5 +44,15 @@ describe("formatTimeAgo", () => {
   test("shows hours", () => {
     expect(formatTimeAgo(Date.now() - 90 * 60_000)).toBe("1h ago");
     expect(formatTimeAgo(Date.now() - 3 * 60 * 60_000)).toBe("3h ago");
+  });
+});
+
+describe("isProcessAlive", () => {
+  test("returns true for current process", () => {
+    expect(isProcessAlive(process.pid)).toBe(true);
+  });
+
+  test("returns false for non-existent PID", () => {
+    expect(isProcessAlive(999999999)).toBe(false);
   });
 });

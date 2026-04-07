@@ -2,6 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { renderSessionLine, renderRateLimitsLine } from "./context-bar";
 import { stripAnsi } from "./colors";
 import type { RenderContext } from "../types";
+import { PRESETS } from "../presets";
 
 function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
   return {
@@ -15,7 +16,7 @@ function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
       },
     },
     transcript: { tools: [], agents: [], usage: { inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0, model: "" } },
-    preset: "full",
+    presetConfig: PRESETS.full,
     termWidth: 120,
     ...overrides,
   };
@@ -34,12 +35,12 @@ describe("renderSessionLine", () => {
   });
 
   test("hides project when preset says so", async () => {
-    const line = stripAnsi(await renderSessionLine(makeCtx({ preset: "full" })));
+    const line = stripAnsi(await renderSessionLine(makeCtx({ presetConfig: PRESETS.full })));
     expect(line).not.toContain("my-project");
   });
 
   test("minimal preset still shows context bar", async () => {
-    const line = stripAnsi(await renderSessionLine(makeCtx({ preset: "minimal" })));
+    const line = stripAnsi(await renderSessionLine(makeCtx({ presetConfig: PRESETS.minimal })));
     expect(line).toContain("Context");
     expect(line).not.toContain("my-project");
   });
@@ -62,11 +63,39 @@ describe("renderSessionLine", () => {
     const line = stripAnsi(await renderSessionLine(ctx));
     expect(line).not.toContain("⎇");
   });
+
+  test("shows speed when showSpeed is true and transcript has timestamps", async () => {
+    const ctx = makeCtx({
+      presetConfig: { ...PRESETS.full, showSpeed: true },
+      transcript: {
+        tools: [], agents: [],
+        usage: { inputTokens: 1000, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 6000, model: "test" },
+        firstAssistantTime: "2025-01-01T00:00:00Z",
+        lastAssistantTime: "2025-01-01T00:01:00Z",
+      },
+    });
+    const line = stripAnsi(await renderSessionLine(ctx));
+    expect(line).toContain("⚡100 tok/s");
+  });
+
+  test("hides speed when showSpeed is false", async () => {
+    const ctx = makeCtx({
+      presetConfig: { ...PRESETS.full, showSpeed: false },
+      transcript: {
+        tools: [], agents: [],
+        usage: { inputTokens: 1000, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 6000, model: "test" },
+        firstAssistantTime: "2025-01-01T00:00:00Z",
+        lastAssistantTime: "2025-01-01T00:01:00Z",
+      },
+    });
+    const line = stripAnsi(await renderSessionLine(ctx));
+    expect(line).not.toContain("tok/s");
+  });
 });
 
 describe("renderRateLimitsLine", () => {
   test("returns null when preset disables rate limits", () => {
-    expect(renderRateLimitsLine(makeCtx({ preset: "minimal" }))).toBeNull();
+    expect(renderRateLimitsLine(makeCtx({ presetConfig: PRESETS.minimal }))).toBeNull();
   });
 
   test("returns null when no rate limit data", () => {

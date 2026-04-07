@@ -21,35 +21,66 @@ async function getChartJs(): Promise<string> {
 function formatDate(iso: string): string {
   if (!iso) return "-";
   const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDuration(sec: number): string {
+  if (sec < 60) return `${Math.round(sec)}s`;
+  if (sec < 3600) return `${Math.round(sec / 60)}min`;
+  const h = Math.floor(sec / 3600);
+  const m = Math.round((sec % 3600) / 60);
+  return m > 0 ? `${h}h${m}min` : `${h}h`;
+}
+
+function cacheHitRate(cacheRead: number, total: number): string {
+  if (total === 0) return "-";
+  return `${Math.round((cacheRead / total) * 100)}%`;
 }
 
 export async function generateReportHTML(data: ReportData): Promise<string> {
   const chartJs = await getChartJs();
-  const projectRows = data.projects.map((p) => `
+  const projectRows = data.projects.map((p) => {
+    const totalInput = p.inputTokens;
+    return `
     <tr>
       <td>${p.project}</td>
       <td>${p.sessions}</td>
       <td>${formatTokenCount(p.inputTokens)}</td>
       <td>${formatTokenCount(p.outputTokens)}</td>
+      <td>${cacheHitRate(p.cacheReadTokens, totalInput)}</td>
       <td>${formatDate(p.lastActivity)}</td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 
-  const sessionsRows = data.sessions.slice(0, 100).map((s) => `
+  const sessionsRows = data.sessions.slice(0, 100).map((s) => {
+    const durationSec = s.firstActivity && s.lastActivity
+      ? (new Date(s.lastActivity).getTime() - new Date(s.firstActivity).getTime()) / 1000
+      : 0;
+    const speed = durationSec >= 1 ? s.outputTokens / durationSec : null;
+    const speedStr = speed !== null
+      ? (speed >= 1000 ? `${formatTokenCount(Math.round(speed))} tok/s` : speed >= 10 ? `${Math.round(speed)} tok/s` : `${speed.toFixed(1)} tok/s`)
+      : "-";
+    const durationStr = durationSec >= 1 ? formatDuration(durationSec) : "-";
+    const hitRate = cacheHitRate(s.cacheReadTokens, s.inputTokens);
+    return `
     <tr>
       <td>${s.project}</td>
       <td>${formatDate(s.lastActivity)}</td>
       <td>${s.model.replace("claude-", "")}</td>
       <td>${formatTokenCount(s.inputTokens)}</td>
       <td>${formatTokenCount(s.outputTokens)}</td>
-    </tr>`).join("");
+      <td>${hitRate}</td>
+      <td>${durationStr}</td>
+      <td>${speedStr}</td>
+    </tr>`;
+  }).join("");
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Claude HUD Report</title>
+<title>Claude 使用概览</title>
 ${chartJs ? `<script>${chartJs}</script>` : `<script src="${CHARTJS_CDN}"></script>`}
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -71,29 +102,30 @@ ${chartJs ? `<script>${chartJs}</script>` : `<script src="${CHARTJS_CDN}"></scri
 </style>
 </head>
 <body>
-<h1>Claude HUD Report</h1>
-<p class="meta">Generated ${new Date(data.generatedAt).toLocaleString()} · ${data.totals.sessions} sessions · ${data.totals.activeDays} active days</p>
+<h1>Claude 使用概览</h1>
+<p class="meta">生成时间 ${new Date(data.generatedAt).toLocaleString("zh-CN")} · ${data.totals.sessions} 个会话 · ${data.totals.activeDays} 个活跃日</p>
 
 <div class="cards">
-  <div class="card"><div class="label">Total Sessions</div><div class="value">${data.totals.sessions}</div></div>
-  <div class="card"><div class="label">Total Tokens</div><div class="value">${formatTokenCount(data.totals.tokens)}</div></div>
-  <div class="card"><div class="label">Active Days</div><div class="value">${data.totals.activeDays}</div></div>
+  <div class="card"><div class="label">总会话数</div><div class="value">${data.totals.sessions}</div></div>
+  <div class="card"><div class="label">总 Token 数</div><div class="value">${formatTokenCount(data.totals.tokens)}</div></div>
+  <div class="card"><div class="label">活跃天数</div><div class="value">${data.totals.activeDays}</div></div>
+  <div class="card"><div class="label">Cache 命中率</div><div class="value">${cacheHitRate(data.totals.cacheReadTokens, data.totals.tokens)}</div></div>
 </div>
 
 <div class="charts">
-  <div class="chart-box"><h2>Daily Tokens (Last 30 Days)</h2><canvas id="tokenChart"></canvas></div>
-  <div class="chart-box"><h2>Model Distribution (Tokens)</h2><canvas id="modelChart" style="max-height:260px"></canvas></div>
+  <div class="chart-box"><h2>每日 Token 用量（近 30 天）</h2><canvas id="tokenChart"></canvas></div>
+  <div class="chart-box"><h2>模型分布（Token）</h2><canvas id="modelChart" style="max-height:260px"></canvas></div>
 </div>
 
-<h2 style="color:#8b949e;font-size:14px;text-transform:uppercase;margin-bottom:12px">Projects</h2>
+<h2 style="color:#8b949e;font-size:14px;margin-bottom:12px">项目概览</h2>
 <table style="margin-bottom:32px">
-  <thead><tr><th>Project</th><th>Sessions</th><th>Input</th><th>Output</th><th>Last Activity</th></tr></thead>
+  <thead><tr><th>项目</th><th>会话数</th><th>输入</th><th>输出</th><th>Cache 命中</th><th>最近活动</th></tr></thead>
   <tbody>${projectRows}</tbody>
 </table>
 
-<h2 style="color:#8b949e;font-size:14px;text-transform:uppercase;margin-bottom:12px">Recent Sessions (top 100)</h2>
+<h2 style="color:#8b949e;font-size:14px;margin-bottom:12px">近期会话（前 100 条）</h2>
 <table>
-  <thead><tr><th>Project</th><th>Last Activity</th><th>Model</th><th>Input</th><th>Output</th></tr></thead>
+  <thead><tr><th>项目</th><th>最近活动</th><th>模型</th><th>输入</th><th>输出</th><th>Cache 命中</th><th>时长</th><th>平均速度</th></tr></thead>
   <tbody>${sessionsRows}</tbody>
 </table>
 
@@ -102,15 +134,17 @@ const DATA = ${JSON.stringify(data)};
 const daily = DATA.daily.slice(-30);
 const labels = daily.map(d => d.date.slice(5));
 
-const chartDefaults = { responsive: true, plugins: { legend: { labels: { color: '#8b949e' } } }, scales: { x: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } }, y: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } } } };
+function fmtTok(n) { if (n >= 1e6) return (n/1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M'; if (n >= 1e3) return (n/1e3).toFixed(n >= 1e4 ? 0 : 1) + 'K'; return String(n); }
+const chartDefaults = { responsive: true, plugins: { legend: { labels: { color: '#8b949e' } }, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmtTok(ctx.raw) } } }, scales: { x: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } }, y: { ticks: { color: '#8b949e', callback: v => fmtTok(v) }, grid: { color: '#21262d' } } } };
 
 new Chart(document.getElementById('tokenChart'), {
   type: 'bar',
   data: { labels, datasets: [
-    { label: 'Input', data: daily.map(d => d.inputTokens), backgroundColor: '#58a6ff' },
-    { label: 'Output', data: daily.map(d => d.outputTokens), backgroundColor: '#d2a8ff' }
+    { label: '输入', data: daily.map(d => d.inputTokens), backgroundColor: '#58a6ff', yAxisID: 'y' },
+    { label: '输出', data: daily.map(d => d.outputTokens), backgroundColor: '#d2a8ff', yAxisID: 'y' },
+    { label: '会话数', data: daily.map(d => d.sessions), type: 'line', borderColor: '#3fb950', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 3, yAxisID: 'y1' }
   ] },
-  options: { ...chartDefaults, scales: { ...chartDefaults.scales, x: { ...chartDefaults.scales.x, stacked: true }, y: { ...chartDefaults.scales.y, stacked: true } } }
+  options: { ...chartDefaults, scales: { ...chartDefaults.scales, x: chartDefaults.scales.x, y: { ...chartDefaults.scales.y, position: 'left' }, y1: { position: 'right', ticks: { color: '#3fb950' }, grid: { drawOnChartArea: false }, title: { display: true, text: '会话数', color: '#3fb950' } } } }
 });
 
 const modelData = DATA.modelBreakdown;

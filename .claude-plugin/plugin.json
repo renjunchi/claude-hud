@@ -1,0 +1,16 @@
+{
+  "name": "claude-hud",
+  "description": "Terminal statusline HUD for Claude Code — 上下文用量、工具活动、多会话监控、使用报告",
+  "version": "0.1.0",
+  "author": {
+    "name": "任俊驰"
+  },
+  "commands": [
+    "./commands/enable.md",
+    "./commands/disable.md",
+    "./commands/report.md"
+  ],
+  "repository": "ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git",
+  "license": "MIT",
+  "keywords": ["hud", "statusline", "monitoring", "claude-code"]
+}

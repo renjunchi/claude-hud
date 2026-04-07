@@ -5,6 +5,8 @@ export interface DailyStats {
   date: string;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
   sessions: number;
 }
 
@@ -16,6 +18,8 @@ export interface SessionStats {
   model: string;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
 }
 
 export interface ProjectStats {
@@ -23,6 +27,8 @@ export interface ProjectStats {
   sessions: number;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
   lastActivity: string;
 }
 
@@ -30,8 +36,15 @@ export interface ReportData {
   daily: DailyStats[];
   sessions: SessionStats[];
   projects: ProjectStats[];
-  totals: { tokens: number; sessions: number; activeDays: number };
-  modelBreakdown: Record<string, { tokens: number }>;
+  totals: {
+    tokens: number;
+    sessions: number;
+    activeDays: number;
+    cacheCreationTokens: number;
+    cacheReadTokens: number;
+
+  };
+  modelBreakdown: Record<string, { tokens: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number }>;
   generatedAt: string;
 }
 
@@ -75,7 +88,7 @@ export async function aggregateReport(): Promise<ReportData> {
 
   const dailyMap = new Map<string, DailyStats>();
   const sessionMap = new Map<string, SessionStats>();
-  const modelMap = new Map<string, { tokens: number }>();
+  const modelMap = new Map<string, { tokens: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number }>();
 
   for (const file of files) {
     await parseFile(file.path, file.project, dailyMap, sessionMap, modelMap);
@@ -87,13 +100,19 @@ export async function aggregateReport(): Promise<ReportData> {
   );
 
   let totalTokens = 0;
+  let totalCacheCreation = 0;
+  let totalCacheRead = 0;
   const projectMap = new Map<string, ProjectStats>();
   for (const s of sessions) {
     totalTokens += s.inputTokens + s.outputTokens;
-    const p = projectMap.get(s.project) ?? { project: s.project, sessions: 0, inputTokens: 0, outputTokens: 0, lastActivity: "" };
+    totalCacheCreation += s.cacheCreationTokens;
+    totalCacheRead += s.cacheReadTokens;
+    const p = projectMap.get(s.project) ?? { project: s.project, sessions: 0, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, lastActivity: "" };
     p.sessions++;
     p.inputTokens += s.inputTokens;
     p.outputTokens += s.outputTokens;
+    p.cacheCreationTokens += s.cacheCreationTokens;
+    p.cacheReadTokens += s.cacheReadTokens;
     if (s.lastActivity > p.lastActivity) p.lastActivity = s.lastActivity;
     projectMap.set(s.project, p);
   }
@@ -109,6 +128,8 @@ export async function aggregateReport(): Promise<ReportData> {
       tokens: totalTokens,
       sessions: sessions.length,
       activeDays: daily.length,
+      cacheCreationTokens: totalCacheCreation,
+      cacheReadTokens: totalCacheRead,
     },
     modelBreakdown: Object.fromEntries(modelMap),
     generatedAt: new Date().toISOString(),
@@ -120,7 +141,7 @@ async function parseFile(
   project: string,
   dailyMap: Map<string, DailyStats>,
   sessionMap: Map<string, SessionStats>,
-  modelMap: Map<string, { tokens: number }>,
+  modelMap: Map<string, { tokens: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number }>,
 ): Promise<void> {
   let text: string;
   try {
@@ -141,7 +162,9 @@ async function parseFile(
     if (entry.type !== "assistant" || !entry.message?.usage) continue;
 
     const u = entry.message.usage;
-    const input = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+    const cacheCreation = u.cache_creation_input_tokens ?? 0;
+    const cacheRead = u.cache_read_input_tokens ?? 0;
+    const input = (u.input_tokens ?? 0) + cacheCreation + cacheRead;
     const output = u.output_tokens ?? 0;
     const model = entry.message.model ?? "unknown";
 
@@ -149,9 +172,11 @@ async function parseFile(
     const ts = entry.timestamp ?? "";
     const date = ts.slice(0, 10);
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      const d = dailyMap.get(date) ?? { date, inputTokens: 0, outputTokens: 0, sessions: 0 };
+      const d = dailyMap.get(date) ?? { date, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, sessions: 0 };
       d.inputTokens += input;
       d.outputTokens += output;
+      d.cacheCreationTokens += cacheCreation;
+      d.cacheReadTokens += cacheRead;
       dailyMap.set(date, d);
     }
 
@@ -165,9 +190,13 @@ async function parseFile(
       model,
       inputTokens: 0,
       outputTokens: 0,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
     };
     s.inputTokens += input;
     s.outputTokens += output;
+    s.cacheCreationTokens += cacheCreation;
+    s.cacheReadTokens += cacheRead;
     if (ts && ts < s.firstActivity) s.firstActivity = ts;
     if (ts && ts > s.lastActivity) s.lastActivity = ts;
     s.model = model;
@@ -175,8 +204,12 @@ async function parseFile(
 
     // Model breakdown
     const tier = model.includes("opus") ? "Opus" : model.includes("haiku") ? "Haiku" : "Sonnet";
-    const m = modelMap.get(tier) ?? { tokens: 0 };
+    const m = modelMap.get(tier) ?? { tokens: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 };
     m.tokens += input + output;
+    m.inputTokens += input;
+    m.outputTokens += output;
+    m.cacheReadTokens += cacheRead;
+    m.cacheCreationTokens += cacheCreation;
     modelMap.set(tier, m);
   }
 

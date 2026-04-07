@@ -74,6 +74,20 @@ echo '{ "preset": "essential" }' > ~/.claude/claude-hud.json
 
 可选值：`full`（默认，最全）、`essential`（中等）、`minimal`（最简）。
 
+### 自定义显示元素
+
+可以基于预设覆盖个别开关，或完全自定义：
+
+```bash
+# 基于 full 预设，关闭会话监控
+echo '{ "preset": "full", "show": { "sessions": false } }' > ~/.claude/claude-hud.json
+
+# 完全自定义：只显示模型 + 上下文 + Rate Limits
+echo '{ "show": { "model": true, "contextBar": true, "rateLimits": true } }' > ~/.claude/claude-hud.json
+```
+
+`show` 可用的键：`model`、`contextBar`、`project`、`rateLimits`、`tools`、`agents`、`tokenUsage`、`sessions`。
+
 ### 关闭 / 恢复原生
 
 ```bash
@@ -117,6 +131,10 @@ CLAUDE_HUD_PRESET=minimal
 { "preset": "essential" }
 ```
 
+**优先级：** 环境变量 `CLAUDE_HUD_PRESET` > `show` 字段 > `preset` 字段 > 默认 `full`
+
+### 内置预设
+
 | 元素 | full | essential | minimal |
 |------|------|-----------|---------|
 | 模型名称 | ✓ | ✓ | ✓ |
@@ -127,10 +145,36 @@ CLAUDE_HUD_PRESET=minimal
 | Token 用量 | | ✓ | |
 | 其他会话 | ✓ | ✓ | |
 
+### 自定义配置
+
+在 `~/.claude/claude-hud.json` 中使用 `show` 字段自定义元素组合：
+
+```jsonc
+// 基于预设覆盖个别开关
+{ "preset": "full", "show": { "sessions": false } }
+
+// 完全自定义（未列出的元素不显示）
+{ "show": { "model": true, "contextBar": true, "rateLimits": true } }
+
+// 等同于上面，显式声明 custom
+{ "preset": "custom", "show": { "model": true, "contextBar": true, "rateLimits": true } }
+```
+
+| show 键 | 对应元素 |
+|---------|---------|
+| `model` | 模型名称 |
+| `contextBar` | Context 进度条 |
+| `project` | 项目名称 |
+| `rateLimits` | Rate Limits |
+| `tools` | 活跃工具 |
+| `agents` | Agent 状态 |
+| `tokenUsage` | Token 用量 |
+| `sessions` | 其他会话 |
+
 ## 开发
 
 ```bash
-bun test          # 运行 112 个测试
+bun test          # 运行 126 个测试
 bun run build     # 构建 dist/claude-hud.js (~19KB)
 ```
 

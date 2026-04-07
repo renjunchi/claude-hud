@@ -42,8 +42,8 @@ export async function setup(): Promise<void> {
   // Check if already configured with OUR version
   const existing = settings.statusLine as Record<string, unknown> | undefined;
   const existingCmd = existing?.command ? String(existing.command) : "";
-  if (existingCmd.includes("WebServer/tools/claude-hud")) {
-    console.log("claude-hud (local) is already configured.");
+  if (existingCmd.includes("claude-hud")) {
+    console.log("claude-hud is already configured.");
     console.log(`  command: ${existingCmd}`);
     return;
   }

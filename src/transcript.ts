@@ -88,6 +88,8 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
   const toolMap = new Map<string, ToolEntry>();
   const agentMap = new Map<string, AgentEntry>();
   const usage = emptyUsage();
+  let firstAssistantTime: string | undefined;
+  let lastAssistantTime: string | undefined;
 
   try {
     const text = await file.text();
@@ -115,6 +117,12 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
           if (entry.message.model) {
             usage.model = entry.message.model;
           }
+
+          // Track first/last assistant timestamps
+          if (entry.timestamp) {
+            if (!firstAssistantTime) firstAssistantTime = entry.timestamp;
+            lastAssistantTime = entry.timestamp;
+          }
         }
       } catch {
         // Skip malformed lines
@@ -128,6 +136,8 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
     tools: Array.from(toolMap.values()).slice(-20),
     agents: Array.from(agentMap.values()).slice(-10),
     usage,
+    firstAssistantTime,
+    lastAssistantTime,
   };
 
   // Write cache (non-fatal)

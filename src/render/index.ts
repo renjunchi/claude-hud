@@ -1,5 +1,4 @@
 import type { RenderContext } from "../types";
-import { PRESETS } from "../presets";
 import { renderSessionLine, renderRateLimitsLine } from "./context-bar";
 import { renderToolsLine } from "./tools";
 import { renderAgentsLine } from "./agents";
@@ -9,7 +8,7 @@ import { scanActiveSessions } from "../sessions";
 
 /** Render all lines based on preset */
 export async function render(ctx: RenderContext): Promise<string> {
-  const preset = PRESETS[ctx.preset];
+  const preset = ctx.presetConfig;
   const lines: string[] = [];
 
   // Line 1: always — model + project + context bar + git branch
@@ -23,7 +22,7 @@ export async function render(ctx: RenderContext): Promise<string> {
 
   // Line 3: token usage
   if (preset.showTokenUsage) {
-    const usageLine = renderTokenUsageLine(ctx.transcript.usage);
+    const usageLine = renderTokenUsageLine(ctx.transcript.usage, ctx.transcript);
     if (usageLine) lines.push(usageLine);
   }
 

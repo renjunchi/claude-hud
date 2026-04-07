@@ -2,6 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { render } from "./index";
 import { stripAnsi } from "./colors";
 import type { RenderContext } from "../types";
+import { PRESETS } from "../presets";
 
 function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
   return {
@@ -15,7 +16,7 @@ function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
       },
     },
     transcript: { tools: [], agents: [], usage: { inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0, model: "" } },
-    preset: "full",
+    presetConfig: PRESETS.full,
     termWidth: 120,
     ...overrides,
   };
@@ -31,7 +32,7 @@ describe("render", () => {
 
   test("essential preset hides tools and agents", async () => {
     const ctx = makeCtx({
-      preset: "essential",
+      presetConfig: PRESETS.essential,
       transcript: {
         tools: [{ id: "1", name: "Read", status: "completed" }],
         agents: [{ id: "1", type: "Explore", status: "completed" }],
@@ -45,10 +46,27 @@ describe("render", () => {
   });
 
   test("minimal preset shows only model", async () => {
-    const output = stripAnsi(await render(makeCtx({ preset: "minimal" })));
+    const output = stripAnsi(await render(makeCtx({ presetConfig: PRESETS.minimal })));
     expect(output).toContain("Opus 4.6");
     expect(output).not.toContain("Current");
     expect(output).not.toContain("All");
+  });
+
+  test("custom presetConfig with arbitrary combination", async () => {
+    const custom = {
+      showModel: true,
+      showContextBar: false,
+      showProject: false,
+      showRateLimits: true,
+      showTools: false,
+      showAgents: false,
+      showTokenUsage: false,
+      showSessions: false,
+    };
+    const output = stripAnsi(await render(makeCtx({ presetConfig: custom })));
+    expect(output).toContain("Opus 4.6");
+    expect(output).toContain("Current");
+    expect(output).not.toContain("Context"); // contextBar disabled
   });
 
   test("output has multiple lines", async () => {

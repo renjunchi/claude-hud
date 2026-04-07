@@ -1,0 +1,19 @@
+{
+  "name": "claude-hud",
+  "owner": {
+    "name": "任俊驰"
+  },
+  "metadata": {
+    "description": "Terminal statusline HUD for Claude Code",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "claude-hud",
+      "source": "./",
+      "description": "实时状态栏显示上下文用量、活跃工具、运行中的 Agent 和 Token 统计",
+      "category": "monitoring",
+      "tags": ["hud", "statusline", "monitoring"]
+    }
+  ]
+}

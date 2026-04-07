@@ -1,6 +1,6 @@
 import { readStdin } from "./stdin";
 import { parseTranscript } from "./transcript";
-import { resolvePresetName } from "./presets";
+import { resolvePresetConfig } from "./presets";
 import { render } from "./render/index";
 import { setup, disable } from "./cli/setup";
 import { report } from "./cli/report";
@@ -28,14 +28,14 @@ async function main(): Promise<void> {
   // Parse transcript for tools/agents data
   const transcript = await parseTranscript(stdin.transcript_path);
 
-  // Resolve display preset
-  const preset = await resolvePresetName();
+  // Resolve display preset config
+  const presetConfig = await resolvePresetConfig();
 
   // Detect terminal width (stderr since stdout is piped)
   const termWidth = process.stderr.columns || process.stdout.columns || 120;
 
   // Build render context
-  const ctx: RenderContext = { stdin, transcript, preset, termWidth };
+  const ctx: RenderContext = { stdin, transcript, presetConfig, termWidth };
 
   // Render and output
   const output = await render(ctx);
