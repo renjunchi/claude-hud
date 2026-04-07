@@ -1,0 +1,20 @@
+{
+  "name": "claude-hud",
+  "version": "0.1.0",
+  "description": "Terminal statusline HUD for Claude Code",
+  "type": "module",
+  "bin": {
+    "claude-hud": "dist/claude-hud.js"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outfile dist/claude-hud.js --target bun --minify",
+    "dev": "bun src/index.ts",
+    "test": "bun test"
+  },
+  "keywords": ["claude-code", "statusline", "hud", "terminal"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "allow": [
+      "Read", "Glob", "Grep", "Edit", "Write",
+      "Task", "TodoWrite", "WebFetch", "WebSearch", "Skill",
+      "Bash(git:*)", "Bash(ls:*)", "Bash(find:*)",
+      "Bash(mkdir:*)", "Bash(cp:*)", "Bash(mv:*)",
+      "Bash(cat:*)", "Bash(head:*)", "Bash(tail:*)",
+      "Bash(wc:*)", "Bash(sort:*)", "Bash(diff:*)",
+      "Bash(echo:*)", "Bash(grep:*)", "Bash(which:*)",
+      "Bash(pwd:*)", "Bash(date:*)", "Bash(file:*)",
+      "Bash(git rebase --continue:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)", "Bash(rm -rf /*)", "Bash(rm -rf ~)",
+      "Bash(sudo:*)", "Bash(su:*)", "Bash(chmod 777:*)",
+      "Bash(git push --force:*)", "Bash(git push -f:*)",
+      "Bash(git reset --hard HEAD~:*)"
+    ],
+    "ask": [
+      "Bash(git merge:*)", "Bash(git rebase:*)", "Bash(git reset:*)",
+      "Bash(rm:*)", "Bash(curl:*)", "Bash(wget:*)", "Bash(docker:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-code-edit.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

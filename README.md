@@ -1,93 +1,139 @@
 # claude-hud
 
-
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+[Claude Code](https://claude.ai/code) 终端状态栏 HUD。实时显示上下文窗口、Rate Limits、活跃工具和多会话监控。
 
 ```
-cd existing_repo
-git remote add origin http://10.10.2.124/junchi.ren/claude-hud.git
-git branch -M main
-git push -uf origin main
+[Opus 4.6 (1M context)] │ Context ▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱ 15% │ ⎇ main
+Current ▰▰▰▱▱▱▱▱▱▱ 32% ↻2 hr 35 min │ All ▰▰▰▰▱▱▱▱▱▱ 43% ↻Thu 10:00 PM
+◐ Read │ ✓ Grep x5 │ ✓ Edit x2
++2 sessions: n8n-plugin(5m ago) servo_master(12m ago)
 ```
 
-## Integrate with your tools
+## 功能
 
-* [Set up project integrations](http://10.10.2.124/junchi.ren/claude-hud/-/settings/integrations)
+- **上下文窗口** — 实时使用百分比，颜色阈值（绿/黄/红）
+- **Rate Limits** — 5 小时和 7 天用量，倒计时/重置时间
+- **Git 分支** — 从 `.git/HEAD` 读取当前分支
+- **活跃工具** — 正在运行和已完成的工具调用及次数
+- **多会话监控** — 检测本机其他活跃的 Claude Code 会话
+- **Token 用量** — 累计 input/output tokens
+- **用量报告** — 生成带图表的 HTML 报告
+- **显示预设** — full / essential / minimal 三种模式
 
-## Collaborate with your team
+## 快速开始
 
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+### 1. 安装 Bun
 
-## Test and Deploy
+如果还没有安装 [Bun](https://bun.sh)：
 
-Use the built-in continuous integration in GitLab.
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### 2. 克隆并安装
 
-***
+```bash
+git clone <your-repo-url> claude-hud
+cd claude-hud
+bun install
+```
 
-# Editing this README
+### 3. 配置 Claude Code
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```bash
+bun run src/index.ts setup
+```
 
-## Suggestions for a good README
+这会自动将 statusline 配置写入 `~/.claude/settings.json`。
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+### 4. 重启 Claude Code
 
-## Name
-Choose a self-explaining name for your project.
+关闭当前 Claude Code 会话，重新打开。底部应该出现 claude-hud 状态栏：
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+```
+[Opus 4.6 (1M context)] │ Context ▰▱▱▱▱▱▱▱▱▱ 4% │ ⎇ main
+Current ▰▰▱▱▱▱▱▱▱▱ 15% ↻3 hr 35 min │ All ▰▱▱▱▱▱▱▱▱▱ 5% ↻Thu 10:00 PM
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### 5. 生成用量报告（可选）
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+```bash
+bun run src/index.ts report
+```
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+浏览器会自动打开一个带图表的 HTML 报告页面。
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### 切换显示预设
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+如果信息太多或太少，可以切换预设：
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+```bash
+# 创建配置文件
+echo '{ "preset": "essential" }' > ~/.claude/claude-hud.json
+```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+可选值：`full`（默认，最全）、`essential`（中等）、`minimal`（最简）。
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### 关闭 / 恢复原生
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+```bash
+bun run src/index.ts disable
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+重启 Claude Code 后恢复原生状态栏。再次启用：`bun run src/index.ts enable`。
 
-## License
-For open source projects, say how it is licensed.
+## 命令
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+| 命令 | 说明 |
+|------|------|
+| `claude-hud` | Statusline 模式（由 Claude Code 每 ~300ms 调用） |
+| `claude-hud enable` | 启用 statusline（等同于 `setup`） |
+| `claude-hud disable` | 关闭 statusline，恢复 Claude Code 原生状态栏 |
+| `claude-hud setup` | 同 `enable` |
+| `claude-hud report` | 生成 HTML 用量报告并打开浏览器 |
+| `claude-hud report --no-open` | 仅生成报告不打开 |
+
+## 用量报告
+
+```bash
+bun run src/index.ts report
+```
+
+生成 `~/.claude/claude-hud-report.html`，包含：
+- 概览卡片（总会话数、总 tokens、活跃天数）
+- 每日 Token 消耗堆叠柱状图
+- 模型分布饼图（Opus/Sonnet/Haiku）
+- 最近 100 个会话列表
+
+## 预设
+
+通过环境变量、配置文件或默认值设置：
+
+```bash
+# 环境变量
+CLAUDE_HUD_PRESET=minimal
+
+# 配置文件：~/.claude/claude-hud.json
+{ "preset": "essential" }
+```
+
+| 元素 | full | essential | minimal |
+|------|------|-----------|---------|
+| 模型名称 | ✓ | ✓ | ✓ |
+| Context 进度条 | ✓ | ✓ | ✓ |
+| Git 分支 | ✓ | ✓ | ✓ |
+| Rate Limits | ✓ | ✓ | |
+| 活跃工具 | ✓ | | |
+| Token 用量 | | ✓ | |
+| 其他会话 | ✓ | ✓ | |
+
+## 开发
+
+```bash
+bun test          # 运行 123 个测试
+bun run build     # 构建 dist/claude-hud.js (~19KB)
+```
+
+## 许可证
+
+MIT

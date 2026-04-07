@@ -1,0 +1,122 @@
+import type { StdinData } from "./types";
+
+/** Read all data from stdin and parse as JSON */
+export async function readStdin(): Promise<StdinData> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of Bun.stdin.stream()) {
+    chunks.push(Buffer.from(chunk));
+  }
+  const raw = Buffer.concat(chunks).toString("utf-8").trim();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as StdinData;
+  } catch {
+    return {};
+  }
+}
+
+/** Get context usage percentage (0-100) */
+export function getContextPercent(stdin: StdinData): number {
+  const cw = stdin.context_window;
+  if (!cw) return 0;
+
+  // Prefer native percentage (v2.1.6+)
+  if (cw.used_percentage != null) {
+    return Math.round(cw.used_percentage);
+  }
+
+  // Fallback: manual calculation
+  const usage = cw.current_usage;
+  const size = cw.context_window_size;
+  if (!usage || !size || size === 0) return 0;
+
+  const totalTokens =
+    (usage.input_tokens ?? 0) +
+    (usage.cache_creation_input_tokens ?? 0) +
+    (usage.cache_read_input_tokens ?? 0);
+
+  return Math.min(100, Math.round((totalTokens / size) * 100));
+}
+
+/** Get model display name */
+export function getModelName(stdin: StdinData): string {
+  return stdin.model?.display_name ?? stdin.model?.id ?? "Unknown";
+}
+
+/** Get project name from cwd */
+export function getProjectName(stdin: StdinData): string {
+  if (!stdin.cwd) return "";
+  const parts = stdin.cwd.split("/");
+  return parts[parts.length - 1] ?? "";
+}
+
+/** Get rate limit info for 5-hour window */
+export function getRateLimit5h(stdin: StdinData): {
+  percent: number;
+  resetsAt: number | null;
+} | null {
+  const rl = stdin.rate_limits?.five_hour;
+  if (!rl || rl.used_percentage == null) return null;
+  return { percent: Math.round(rl.used_percentage), resetsAt: rl.resets_at ?? null };
+}
+
+/** Get rate limit info for 7-day window */
+export function getRateLimit7d(stdin: StdinData): {
+  percent: number;
+  resetsAt: number | null;
+} | null {
+  const rl = stdin.rate_limits?.seven_day;
+  if (!rl || rl.used_percentage == null) return null;
+  return { percent: Math.round(rl.used_percentage), resetsAt: rl.resets_at ?? null };
+}
+
+/** Get current git branch from cwd by reading .git/HEAD */
+export async function getGitBranch(cwd?: string): Promise<string> {
+  if (!cwd) return "";
+  try {
+    let dir = cwd;
+    // Walk up to find .git directory
+    while (dir !== "/") {
+      const headFile = Bun.file(`${dir}/.git/HEAD`);
+      if (await headFile.exists()) {
+        const content = (await headFile.text()).trim();
+        if (content.startsWith("ref: refs/heads/")) {
+          return content.slice("ref: refs/heads/".length);
+        }
+        // Detached HEAD — return short hash
+        return content.slice(0, 7);
+      }
+      dir = dir.replace(/\/[^/]+$/, "") || "/";
+    }
+  } catch {
+    // ignore
+  }
+  return "";
+}
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Format reset time as countdown: "3 hr 35 min" */
+export function formatResetCountdown(resetsAt: number | null): string {
+  if (resetsAt == null) return "";
+  const nowSec = Math.floor(Date.now() / 1000);
+  const diffSec = resetsAt - nowSec;
+  if (diffSec <= 0) return "now";
+  const h = Math.floor(diffSec / 3600);
+  const m = Math.floor((diffSec % 3600) / 60);
+  if (h > 0) return `${h} hr${m > 0 ? ` ${m} min` : ""}`;
+  return `${m} min`;
+}
+
+/** Format reset time as "Thu 10:00 PM" */
+export function formatResetAbsolute(resetsAt: number | null): string {
+  if (resetsAt == null) return "";
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (resetsAt - nowSec <= 0) return "now";
+  const d = new Date(resetsAt * 1000);
+  let h = d.getHours();
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  const time = `${h}:${String(d.getMinutes()).padStart(2, "0")} ${ampm}`;
+  return `${WEEKDAYS[d.getDay()]} ${time}`;
+}

@@ -1,0 +1,37 @@
+# .agentic-dev.yaml — 项目级 Agentic 开发配置
+# 由 ad-init 生成，项目维护者可按需调整
+
+# 上下文管理配置
+context:
+  claude_md_max_lines: 200
+  tracking_max_lines: 200
+  budget:
+    tier1: 24000
+    tier2: 56000
+    tier3: 48000
+    tier4: 60000
+    total: 200000
+  banned:
+    - repomix
+    - full-codebase-dump
+
+# 文档管理配置
+documents:
+  design_dir: "docs/design"
+  worklist_dir: "docs/worklist"
+  archive_dir: "docs/worklist/archives"
+  quick_reference:
+    required_above_lines: 200
+    max_lines: 100
+
+# 索引配置
+indexes:
+  dir: ".claude/indexes"
+  files:
+    - issue-index.json
+    - project-index-overview.json
+    - "modules/*.json"
+  auto_update:
+    on_commit: true
+    on_issue_change: true
+    on_post_merge: true
