@@ -42,9 +42,9 @@ bun install --frozen-lockfile 2>/dev/null || bun install
 # 6. Ensure plugins directory exists
 mkdir -p "${CLAUDE_DIR}/plugins"
 
-# 7. Register in known_marketplaces.json
+# 7. Register in known_marketplaces.json (and remove conflicting "claude-hud" marketplace if present)
 python3 - "$SCRIPT_DIR" "$MARKETPLACES_FILE" <<'PYEOF'
-import json, sys, os
+import json, sys, os, shutil
 from datetime import datetime, timezone
 
 install_path, mp_file = sys.argv[1], sys.argv[2]
@@ -53,6 +53,14 @@ data = {}
 if os.path.exists(mp_file):
     with open(mp_file) as f:
         data = json.load(f)
+
+# Remove conflicting third-party "claude-hud" marketplace (e.g. jarrodwatts/claude-hud)
+if "claude-hud" in data and data["claude-hud"].get("source", {}).get("source") != "directory":
+    loc = data["claude-hud"].get("installLocation", "")
+    if loc and os.path.isdir(loc):
+        shutil.rmtree(loc, ignore_errors=True)
+    del data["claude-hud"]
+    print("Removed conflicting claude-hud marketplace")
 
 data["claude-hud-local"] = {
     "source": {"source": "directory", "path": install_path},
