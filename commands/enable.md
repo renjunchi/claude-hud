@@ -10,7 +10,7 @@ Enable claude-hud as the Claude Code statusline.
 1. Run the enable command:
 
 ```bash
-bun $PROJECT_DIR/src/index.ts enable
+bun "${CLAUDE_PLUGIN_ROOT}/src/index.ts" enable
 ```
 
 2. Tell the user:

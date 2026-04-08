@@ -10,7 +10,7 @@ Generate a claude-hud HTML report and open in browser.
 1. Run the report command:
 
 ```bash
-bun $PROJECT_DIR/src/index.ts report
+bun "${CLAUDE_PLUGIN_ROOT}/src/index.ts" report
 ```
 
 2. Tell the user the report has been generated and opened in the browser.

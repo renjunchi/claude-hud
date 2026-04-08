@@ -10,7 +10,7 @@ Disable claude-hud and restore Claude Code's native statusline.
 1. Run the disable command:
 
 ```bash
-bun $PROJECT_DIR/src/index.ts disable
+bun "${CLAUDE_PLUGIN_ROOT}/src/index.ts" disable
 ```
 
 2. Tell the user:
