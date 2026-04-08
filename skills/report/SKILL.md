@@ -1,4 +1,5 @@
 ---
+name: report
 description: Generate HTML usage report with charts and session history
 allowed-tools: Bash
 ---

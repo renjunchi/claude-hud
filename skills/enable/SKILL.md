@@ -1,4 +1,5 @@
 ---
+name: enable
 description: Enable claude-hud statusline
 allowed-tools: Bash, Read, Edit
 ---

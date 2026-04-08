@@ -1,4 +1,5 @@
 ---
+name: disable
 description: Disable claude-hud statusline and restore native display
 allowed-tools: Bash, Read, Edit
 ---
