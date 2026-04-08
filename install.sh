@@ -16,11 +16,14 @@ if ! command -v bun &>/dev/null; then
   exit 1
 fi
 
-# 2. Install dependencies
+# 2. Reset working tree to match HEAD (in case local files were modified)
 cd "$SCRIPT_DIR"
+git checkout -- . 2>/dev/null || true
+
+# 3. Install dependencies
 bun install --frozen-lockfile 2>/dev/null || bun install
 
-# 3. Ensure plugins directory exists
+# 4. Ensure plugins directory exists
 mkdir -p "${CLAUDE_DIR}/plugins"
 
 # 4. Register in known_marketplaces.json
