@@ -64,7 +64,15 @@ else { git clone $Repo $T }
 Current ▰▰▱▱▱▱▱▱▱▱ 15% ↻3 hr 35 min │ All ▰▱▱▱▱▱▱▱▱▱ 5% ↻Thu 10:00 PM
 ```
 
-### 5. 生成用量报告（可选）
+### 4. 生成用量报告（可选）
+
+在 Claude Code 中直接输入：
+
+```
+/claude-hud:report
+```
+
+或通过命令行：
 
 ```bash
 bun run src/index.ts report
@@ -99,20 +107,31 @@ echo '{ "show": { "model": true, "contextBar": true, "rateLimits": true } }' > ~
 
 ### 关闭 / 恢复原生
 
+在 Claude Code 中输入 `/claude-hud:disable`，或通过命令行：
+
 ```bash
 bun run src/index.ts disable
 ```
 
-重启 Claude Code 后恢复原生状态栏。再次启用：`bun run src/index.ts enable`。
+重启 Claude Code 后恢复原生状态栏。再次启用：`/claude-hud:enable` 或 `bun run src/index.ts enable`。
 
 ## 命令
+
+### 斜杠命令（Claude Code 内使用）
+
+| 命令 | 说明 |
+|------|------|
+| `/claude-hud:enable` | 启用 statusline |
+| `/claude-hud:disable` | 关闭 statusline，恢复原生状态栏 |
+| `/claude-hud:report` | 生成 HTML 用量报告并打开浏览器 |
+
+### CLI 命令
 
 | 命令 | 说明 |
 |------|------|
 | `claude-hud` | Statusline 模式（由 Claude Code 每 ~300ms 调用） |
 | `claude-hud enable` | 启用 statusline（等同于 `setup`） |
 | `claude-hud disable` | 关闭 statusline，恢复 Claude Code 原生状态栏 |
-| `claude-hud setup` | 同 `enable` |
 | `claude-hud report` | 生成 HTML 用量报告并打开浏览器 |
 | `claude-hud report --no-open` | 仅生成报告不打开 |
 
