@@ -15,4 +15,4 @@ bun $PROJECT_DIR/src/index.ts enable
 
 2. Tell the user:
 
-> ✅ claude-hud enabled. **Please restart Claude Code** to see the HUD.
+> claude-hud enabled. **Please restart Claude Code** to see the HUD.

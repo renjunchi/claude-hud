@@ -15,6 +15,6 @@ bun $PROJECT_DIR/src/index.ts disable
 
 2. Tell the user:
 
-> ✅ claude-hud disabled. **Please restart Claude Code** to restore the native statusline.
+> claude-hud disabled. **Please restart Claude Code** to restore the native statusline.
 >
-> To re-enable, run `/enable`.
+> To re-enable, run `/claude-hud:enable` or `/enable`.
