@@ -102,7 +102,10 @@ with open(inst_file, "w") as f:
 PYEOF
 echo "Registered plugin: claude-hud@claude-hud-local"
 
-# 9. Configure statusline (use cache dir)
+# 9. Enable plugin (plugins are disabled by default after manual registration)
+claude plugin enable claude-hud@claude-hud-local 2>/dev/null || true
+
+# 10. Configure statusline (use cache dir)
 bun "$CACHE_DIR/src/index.ts" enable
 
 echo ""
