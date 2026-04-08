@@ -53,6 +53,8 @@ export interface TokenUsage {
 export interface TranscriptData {
   tools: ToolEntry[];
   agents: AgentEntry[];
+  /** Unique skill names used in this session */
+  skills: Set<string>;
   usage: TokenUsage;
   /** ISO timestamp of the first assistant message */
   firstAssistantTime?: string;

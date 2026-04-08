@@ -15,7 +15,7 @@ function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
         seven_day: { used_percentage: 5, resets_at: Math.floor(Date.now() / 1000) + 86400 },
       },
     },
-    transcript: { tools: [], agents: [], usage: { inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0, model: "" } },
+    transcript: { tools: [], agents: [], skills: new Set(), skills: new Set(), usage: { inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0, model: "" } },
     presetConfig: PRESETS.full,
     termWidth: 120,
     ...overrides,
@@ -68,7 +68,7 @@ describe("renderSessionLine", () => {
     const ctx = makeCtx({
       presetConfig: { ...PRESETS.full, showSpeed: true },
       transcript: {
-        tools: [], agents: [],
+        tools: [], agents: [], skills: new Set(),
         usage: { inputTokens: 1000, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 6000, model: "test" },
         firstAssistantTime: "2025-01-01T00:00:00Z",
         lastAssistantTime: "2025-01-01T00:01:00Z",
@@ -82,7 +82,7 @@ describe("renderSessionLine", () => {
     const ctx = makeCtx({
       presetConfig: { ...PRESETS.full, showSpeed: false },
       transcript: {
-        tools: [], agents: [],
+        tools: [], agents: [], skills: new Set(),
         usage: { inputTokens: 1000, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 6000, model: "test" },
         firstAssistantTime: "2025-01-01T00:00:00Z",
         lastAssistantTime: "2025-01-01T00:01:00Z",

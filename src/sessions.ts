@@ -38,8 +38,8 @@ export function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     alive = true;
-  } catch (err: any) {
-    alive = err.code === "EPERM"; // EPERM = process exists but no permission
+  } catch (err: unknown) {
+    alive = (err as NodeJS.ErrnoException).code === "EPERM"; // EPERM = process exists but no permission
   }
 
   aliveCache.set(pid, { alive, checkedAt: now });

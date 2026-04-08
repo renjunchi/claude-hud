@@ -8,7 +8,6 @@ export const green = `${ESC}32m`;
 export const yellow = `${ESC}33m`;
 export const red = `${ESC}31m`;
 export const cyan = `${ESC}36m`;
-export const white = `${ESC}37m`;
 export const gray = `${ESC}90m`;
 
 /** Colorize text */

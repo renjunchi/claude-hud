@@ -6,42 +6,54 @@ import { renderTokenUsageLine } from "./token-usage";
 import { renderSessionsLine } from "./sessions";
 import { scanActiveSessions } from "../sessions";
 
+/** Safely execute a render function, return null on error */
+async function safe<T>(fn: () => T | Promise<T>): Promise<T | null> {
+  try {
+    return await fn();
+  } catch {
+    return null;
+  }
+}
+
 /** Render all lines based on preset */
 export async function render(ctx: RenderContext): Promise<string> {
   const preset = ctx.presetConfig;
   const lines: string[] = [];
 
   // Line 1: always — model + project + context bar + git branch
-  lines.push(await renderSessionLine(ctx));
+  const sessionLine = await safe(() => renderSessionLine(ctx));
+  if (sessionLine) lines.push(sessionLine);
 
   // Line 2: rate limits
   if (preset.showRateLimits) {
-    const rateLine = renderRateLimitsLine(ctx);
+    const rateLine = await safe(() => renderRateLimitsLine(ctx));
     if (rateLine) lines.push(rateLine);
   }
 
   // Line 3: token usage
   if (preset.showTokenUsage) {
-    const usageLine = renderTokenUsageLine(ctx.transcript.usage, ctx.transcript);
+    const usageLine = await safe(() => renderTokenUsageLine(ctx.transcript.usage, ctx.transcript));
     if (usageLine) lines.push(usageLine);
   }
 
   // Line 4: other active sessions
   if (preset.showSessions) {
-    const sessions = await scanActiveSessions(ctx.stdin.transcript_path);
-    const sessionsLine = renderSessionsLine(sessions);
-    if (sessionsLine) lines.push(sessionsLine);
+    const sessions = await safe(() => scanActiveSessions(ctx.stdin.transcript_path));
+    if (sessions) {
+      const sessionsLine = renderSessionsLine(sessions);
+      if (sessionsLine) lines.push(sessionsLine);
+    }
   }
 
   // Line 5: active tools
   if (preset.showTools) {
-    const toolsLine = renderToolsLine(ctx.transcript.tools);
+    const toolsLine = await safe(() => renderToolsLine(ctx.transcript.tools));
     if (toolsLine) lines.push(toolsLine);
   }
 
   // Line 6: agents
   if (preset.showAgents) {
-    const agentsLine = renderAgentsLine(ctx.transcript.agents);
+    const agentsLine = await safe(() => renderAgentsLine(ctx.transcript.agents));
     if (agentsLine) lines.push(agentsLine);
   }
 

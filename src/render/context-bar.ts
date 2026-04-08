@@ -47,6 +47,11 @@ export async function renderSessionLine(ctx: RenderContext): Promise<string> {
     parts.push(color(`⎇ ${branch}`, dim));
   }
 
+  // Skills count
+  if (ctx.transcript.skills?.size > 0) {
+    parts.push(color(`Skills x${ctx.transcript.skills.size}`, cyan));
+  }
+
   // Output speed
   if (preset.showSpeed) {
     const speed = calcOutputSpeed(ctx.transcript);

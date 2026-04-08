@@ -42,6 +42,7 @@ async function main(): Promise<void> {
   console.log(output);
 }
 
-main().catch(() => {
-  // Silent failure — don't break Claude Code's terminal
+main().catch((err) => {
+  // Log to stderr so it doesn't interfere with stdout (which Claude Code reads)
+  console.error(`[claude-hud] ${err?.message ?? err}`);
 });

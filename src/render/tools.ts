@@ -1,5 +1,5 @@
 import type { ToolEntry } from "../types";
-import { color, green, yellow, red, gray, dim } from "./colors";
+import { color, green, yellow, red, dim } from "./colors";
 
 const SPINNER = "\u25D0"; // ◐
 const CHECK = "\u2713";   // ✓

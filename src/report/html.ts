@@ -7,7 +7,7 @@ let chartJsInline: string | null = null;
 async function getChartJs(): Promise<string> {
   if (chartJsInline) return chartJsInline;
   try {
-    const res = await fetch(CHARTJS_CDN);
+    const res = await fetch(CHARTJS_CDN, { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       chartJsInline = await res.text();
       return chartJsInline;
@@ -32,23 +32,32 @@ function formatDuration(sec: number): string {
   return m > 0 ? `${h}h${m}min` : `${h}h`;
 }
 
-function cacheHitRate(cacheRead: number, total: number): string {
-  if (total === 0) return "-";
-  return `${Math.round((cacheRead / total) * 100)}%`;
-}
-
 export async function generateReportHTML(data: ReportData): Promise<string> {
   const chartJs = await getChartJs();
   const projectRows = data.projects.map((p) => {
-    const totalInput = p.inputTokens;
+    const skillsHtml = p.topSkills.length > 0
+      ? p.topSkills.map(s => `<span class="skill-tag">${s}</span>`).join(" ")
+      : "-";
     return `
     <tr>
       <td>${p.project}</td>
       <td>${p.sessions}</td>
       <td>${formatTokenCount(p.inputTokens)}</td>
       <td>${formatTokenCount(p.outputTokens)}</td>
-      <td>${cacheHitRate(p.cacheReadTokens, totalInput)}</td>
+      <td>${skillsHtml}</td>
       <td>${formatDate(p.lastActivity)}</td>
+    </tr>`;
+  }).join("");
+
+  const maxSkillCount = data.skillRanking.length > 0 ? data.skillRanking[0].count : 1;
+  const skillRows = data.skillRanking.map((s, i) => {
+    const barWidth = Math.round((s.count / maxSkillCount) * 100);
+    return `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${s.name}</td>
+      <td class="skill-count">${s.count}</td>
+      <td><div class="skill-bar" style="width:${barWidth}%"></div></td>
     </tr>`;
   }).join("");
 
@@ -61,7 +70,6 @@ export async function generateReportHTML(data: ReportData): Promise<string> {
       ? (speed >= 1000 ? `${formatTokenCount(Math.round(speed))} tok/s` : speed >= 10 ? `${Math.round(speed)} tok/s` : `${speed.toFixed(1)} tok/s`)
       : "-";
     const durationStr = durationSec >= 1 ? formatDuration(durationSec) : "-";
-    const hitRate = cacheHitRate(s.cacheReadTokens, s.inputTokens);
     return `
     <tr>
       <td>${s.project}</td>
@@ -69,7 +77,6 @@ export async function generateReportHTML(data: ReportData): Promise<string> {
       <td>${s.model.replace("claude-", "")}</td>
       <td>${formatTokenCount(s.inputTokens)}</td>
       <td>${formatTokenCount(s.outputTokens)}</td>
-      <td>${hitRate}</td>
       <td>${durationStr}</td>
       <td>${speedStr}</td>
     </tr>`;
@@ -94,10 +101,14 @@ ${chartJs ? `<script>${chartJs}</script>` : `<script src="${CHARTJS_CDN}"></scri
   .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
   .chart-box { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
   .chart-box h2 { font-size: 14px; color: #8b949e; margin-bottom: 12px; }
+  .section-title { color: #8b949e; font-size: 14px; margin-bottom: 12px; }
   table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 8px; overflow: hidden; }
   th { background: #21262d; color: #8b949e; text-align: left; padding: 10px 12px; font-size: 12px; text-transform: uppercase; }
   td { padding: 10px 12px; border-top: 1px solid #21262d; font-size: 13px; }
   tr:hover td { background: #1c2128; }
+  .skill-tag { display: inline-block; background: #1f6feb33; color: #58a6ff; border: 1px solid #1f6feb55; border-radius: 4px; padding: 2px 6px; font-size: 11px; margin: 1px 2px; white-space: nowrap; }
+  .skill-bar { height: 16px; background: linear-gradient(90deg, #58a6ff, #1f6feb); border-radius: 3px; min-width: 4px; transition: width 0.3s; }
+  .skill-count { color: #8b949e; font-variant-numeric: tabular-nums; }
   @media (max-width: 768px) { .charts { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -109,7 +120,7 @@ ${chartJs ? `<script>${chartJs}</script>` : `<script src="${CHARTJS_CDN}"></scri
   <div class="card"><div class="label">总会话数</div><div class="value">${data.totals.sessions}</div></div>
   <div class="card"><div class="label">总 Token 数</div><div class="value">${formatTokenCount(data.totals.tokens)}</div></div>
   <div class="card"><div class="label">活跃天数</div><div class="value">${data.totals.activeDays}</div></div>
-  <div class="card"><div class="label">Cache 命中率</div><div class="value">${cacheHitRate(data.totals.cacheReadTokens, data.totals.tokens)}</div></div>
+  <div class="card"><div class="label">Skill 种类</div><div class="value">${data.skillRanking.length}</div></div>
 </div>
 
 <div class="charts">
@@ -117,20 +128,26 @@ ${chartJs ? `<script>${chartJs}</script>` : `<script src="${CHARTJS_CDN}"></scri
   <div class="chart-box"><h2>模型分布（Token）</h2><canvas id="modelChart" style="max-height:260px"></canvas></div>
 </div>
 
-<h2 style="color:#8b949e;font-size:14px;margin-bottom:12px">项目概览</h2>
+<h2 class="section-title">Skill 使用排行</h2>
 <table style="margin-bottom:32px">
-  <thead><tr><th>项目</th><th>会话数</th><th>输入</th><th>输出</th><th>Cache 命中</th><th>最近活动</th></tr></thead>
+  <thead><tr><th style="width:48px">#</th><th>Skill</th><th style="width:80px">次数</th><th style="min-width:120px"></th></tr></thead>
+  <tbody>${skillRows}</tbody>
+</table>
+
+<h2 class="section-title">项目概览</h2>
+<table style="margin-bottom:32px">
+  <thead><tr><th>项目</th><th>会话数</th><th>输入</th><th>输出</th><th>Top Skills</th><th>最近活动</th></tr></thead>
   <tbody>${projectRows}</tbody>
 </table>
 
-<h2 style="color:#8b949e;font-size:14px;margin-bottom:12px">近期会话（前 100 条）</h2>
+<h2 class="section-title">近期会话（前 100 条）</h2>
 <table>
-  <thead><tr><th>项目</th><th>最近活动</th><th>模型</th><th>输入</th><th>输出</th><th>Cache 命中</th><th>时长</th><th>平均速度</th></tr></thead>
+  <thead><tr><th>项目</th><th>最近活动</th><th>模型</th><th>输入</th><th>输出</th><th>时长</th><th>平均速度</th></tr></thead>
   <tbody>${sessionsRows}</tbody>
 </table>
 
 <script>
-const DATA = ${JSON.stringify(data)};
+const DATA = ${JSON.stringify({ daily: data.daily, modelBreakdown: data.modelBreakdown })};
 const daily = DATA.daily.slice(-30);
 const labels = daily.map(d => d.date.slice(5));
 

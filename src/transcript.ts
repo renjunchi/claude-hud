@@ -1,6 +1,7 @@
 import { join, resolve } from "path";
 import { homedir } from "os";
 import { createHash } from "crypto";
+import { mkdirSync } from "fs";
 import type { TranscriptData, ToolEntry, AgentEntry, TokenUsage } from "./types";
 
 interface TranscriptLine {
@@ -37,11 +38,20 @@ interface ContentBlock {
   is_error?: boolean;
 }
 
+interface CacheData {
+  tools: ToolEntry[];
+  agents: AgentEntry[];
+  skills: string[];
+  usage: TokenUsage;
+  firstAssistantTime?: string;
+  lastAssistantTime?: string;
+}
+
 interface CacheFile {
   transcriptPath: string;
   mtimeMs: number;
   size: number;
-  data: TranscriptData;
+  data: CacheData;
 }
 
 const CACHE_DIR = join(homedir(), ".claude", "claude-hud-cache");
@@ -52,7 +62,7 @@ function getCachePath(transcriptPath: string): string {
 }
 
 export async function parseTranscript(transcriptPath?: string): Promise<TranscriptData> {
-  const empty: TranscriptData = { tools: [], agents: [], usage: emptyUsage() };
+  const empty: TranscriptData = { tools: [], agents: [], skills: new Set(), usage: emptyUsage() };
   if (!transcriptPath) return empty;
 
   // Check file state
@@ -77,7 +87,10 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
         cached.size === stat.size &&
         cached.data.usage // cache compat: re-parse if old format
       ) {
-        return cached.data;
+        return {
+          ...cached.data,
+          skills: new Set(cached.data.skills ?? []),
+        };
       }
     }
   } catch {
@@ -87,6 +100,7 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
   // Parse JSONL
   const toolMap = new Map<string, ToolEntry>();
   const agentMap = new Map<string, AgentEntry>();
+  const skillSet = new Set<string>();
   const usage = emptyUsage();
   let firstAssistantTime: string | undefined;
   let lastAssistantTime: string | undefined;
@@ -99,7 +113,7 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
       if (!line.trim()) continue;
       try {
         const entry: TranscriptLine = JSON.parse(line);
-        processEntry(entry, toolMap, agentMap);
+        processEntry(entry, toolMap, agentMap, skillSet);
 
         // Accumulate token usage from assistant entries
         if (entry.type === "assistant" && entry.message?.usage) {
@@ -135,6 +149,7 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
   const result: TranscriptData = {
     tools: Array.from(toolMap.values()).slice(-20),
     agents: Array.from(agentMap.values()).slice(-10),
+    skills: skillSet,
     usage,
     firstAssistantTime,
     lastAssistantTime,
@@ -142,13 +157,12 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
 
   // Write cache (non-fatal)
   try {
-    const { mkdirSync } = await import("fs");
     mkdirSync(CACHE_DIR, { recursive: true });
     const payload: CacheFile = {
       transcriptPath: resolve(transcriptPath),
       mtimeMs: stat.mtimeMs,
       size: stat.size,
-      data: result,
+      data: { ...result, skills: Array.from(result.skills) },
     };
     await Bun.write(cachePath, JSON.stringify(payload));
   } catch {
@@ -162,13 +176,18 @@ function processEntry(
   entry: TranscriptLine,
   toolMap: Map<string, ToolEntry>,
   agentMap: Map<string, AgentEntry>,
+  skillSet: Set<string>,
 ): void {
   const content = entry.message?.content;
   if (!content || !Array.isArray(content)) return;
 
   for (const block of content) {
     if (block.type === "tool_use" && block.id && block.name) {
-      if (block.name === "Task" || block.name === "Agent") {
+      if (block.name === "Skill") {
+        const input = block.input as Record<string, unknown>;
+        const skillName = input?.skill as string | undefined;
+        if (skillName) skillSet.add(skillName);
+      } else if (block.name === "Task" || block.name === "Agent") {
         const input = block.input as Record<string, unknown>;
         agentMap.set(block.id, {
           id: block.id,

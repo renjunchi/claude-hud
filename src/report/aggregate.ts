@@ -30,6 +30,7 @@ export interface ProjectStats {
   cacheCreationTokens: number;
   cacheReadTokens: number;
   lastActivity: string;
+  topSkills: string[];
 }
 
 export interface ReportData {
@@ -45,7 +46,14 @@ export interface ReportData {
 
   };
   modelBreakdown: Record<string, { tokens: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number }>;
+  skillRanking: { name: string; count: number }[];
   generatedAt: string;
+}
+
+interface ContentBlock {
+  type?: string;
+  name?: string;
+  input?: Record<string, unknown>;
 }
 
 interface AssistantEntry {
@@ -61,6 +69,7 @@ interface AssistantEntry {
       cache_read_input_tokens?: number;
       output_tokens?: number;
     };
+    content?: ContentBlock[];
   };
 }
 
@@ -89,9 +98,10 @@ export async function aggregateReport(): Promise<ReportData> {
   const dailyMap = new Map<string, DailyStats>();
   const sessionMap = new Map<string, SessionStats>();
   const modelMap = new Map<string, { tokens: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number }>();
+  const projectSkillMap = new Map<string, Map<string, number>>();
 
   for (const file of files) {
-    await parseFile(file.path, file.project, dailyMap, sessionMap, modelMap);
+    await parseFile(file.path, file.project, dailyMap, sessionMap, modelMap, projectSkillMap);
   }
 
   const daily = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
@@ -107,7 +117,7 @@ export async function aggregateReport(): Promise<ReportData> {
     totalTokens += s.inputTokens + s.outputTokens;
     totalCacheCreation += s.cacheCreationTokens;
     totalCacheRead += s.cacheReadTokens;
-    const p = projectMap.get(s.project) ?? { project: s.project, sessions: 0, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, lastActivity: "" };
+    const p = projectMap.get(s.project) ?? { project: s.project, sessions: 0, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, lastActivity: "", topSkills: [] as string[] };
     p.sessions++;
     p.inputTokens += s.inputTokens;
     p.outputTokens += s.outputTokens;
@@ -116,6 +126,23 @@ export async function aggregateReport(): Promise<ReportData> {
     if (s.lastActivity > p.lastActivity) p.lastActivity = s.lastActivity;
     projectMap.set(s.project, p);
   }
+  // Compute top 5 skills per project and global skill ranking
+  const globalSkillMap = new Map<string, number>();
+  for (const [proj, skills] of projectSkillMap) {
+    const p = projectMap.get(proj);
+    // Accumulate global counts
+    for (const [name, count] of skills) {
+      globalSkillMap.set(name, (globalSkillMap.get(name) ?? 0) + count);
+    }
+    if (!p || skills.size === 0) continue;
+    const sorted = Array.from(skills.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    p.topSkills = sorted.map(([name, count]) => count > 1 ? `${name} (x${count})` : name);
+  }
+  const skillRanking = Array.from(globalSkillMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20)
+    .map(([name, count]) => ({ name, count }));
+
   const projects = Array.from(projectMap.values()).sort(
     (a, b) => (b.inputTokens + b.outputTokens) - (a.inputTokens + a.outputTokens),
   );
@@ -132,6 +159,7 @@ export async function aggregateReport(): Promise<ReportData> {
       cacheReadTokens: totalCacheRead,
     },
     modelBreakdown: Object.fromEntries(modelMap),
+    skillRanking,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -142,6 +170,7 @@ async function parseFile(
   dailyMap: Map<string, DailyStats>,
   sessionMap: Map<string, SessionStats>,
   modelMap: Map<string, { tokens: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number }>,
+  projectSkillMap: Map<string, Map<string, number>>,
 ): Promise<void> {
   let text: string;
   try {
@@ -159,12 +188,24 @@ async function parseFile(
       continue;
     }
 
+    // Extract Skill usage from assistant content blocks
+    if (entry.type === "assistant" && entry.message?.content) {
+      for (const block of entry.message.content) {
+        if (block.type === "tool_use" && block.name === "Skill" && block.input?.skill) {
+          const skillName = block.input.skill as string;
+          const skills = projectSkillMap.get(project) ?? new Map<string, number>();
+          skills.set(skillName, (skills.get(skillName) ?? 0) + 1);
+          projectSkillMap.set(project, skills);
+        }
+      }
+    }
+
     if (entry.type !== "assistant" || !entry.message?.usage) continue;
 
     const u = entry.message.usage;
     const cacheCreation = u.cache_creation_input_tokens ?? 0;
     const cacheRead = u.cache_read_input_tokens ?? 0;
-    const input = (u.input_tokens ?? 0) + cacheCreation + cacheRead;
+    const input = u.input_tokens ?? 0;
     const output = u.output_tokens ?? 0;
     const model = entry.message.model ?? "unknown";
 
@@ -203,7 +244,7 @@ async function parseFile(
     sessionMap.set(sid, s);
 
     // Model breakdown
-    const tier = model.includes("opus") ? "Opus" : model.includes("haiku") ? "Haiku" : "Sonnet";
+    const tier = model.includes("opus") ? "Opus" : model.includes("haiku") ? "Haiku" : model.includes("sonnet") ? "Sonnet" : "Other";
     const m = modelMap.get(tier) ?? { tokens: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 };
     m.tokens += input + output;
     m.inputTokens += input;

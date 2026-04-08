@@ -1,4 +1,4 @@
-import { join } from "path";
+import { join, resolve } from "path";
 import { homedir } from "os";
 
 export async function disable(): Promise<void> {
@@ -73,7 +73,6 @@ export async function setup(): Promise<void> {
 function resolveCommand(): string {
   const mainPath = process.argv[1];
   if (mainPath && (mainPath.endsWith(".ts") || mainPath.includes("src/index.ts") || mainPath.includes("src\\index.ts"))) {
-    const { resolve } = require("path");
     const absPath = resolve(mainPath);
     return `bun ${absPath}`;
   }
