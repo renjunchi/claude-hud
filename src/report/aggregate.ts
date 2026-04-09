@@ -39,6 +39,7 @@ export interface ReportData {
   projects: ProjectStats[];
   totals: {
     tokens: number;
+    inputTokens: number;
     sessions: number;
     activeDays: number;
     cacheCreationTokens: number;
@@ -146,11 +147,13 @@ export async function aggregateReport(): Promise<ReportData> {
   );
 
   let totalTokens = 0;
+  let totalInputTokens = 0;
   let totalCacheCreation = 0;
   let totalCacheRead = 0;
   const projectMap = new Map<string, ProjectStats>();
   for (const s of sessions) {
     totalTokens += s.inputTokens + s.outputTokens;
+    totalInputTokens += s.inputTokens;
     totalCacheCreation += s.cacheCreationTokens;
     totalCacheRead += s.cacheReadTokens;
     const p = projectMap.get(s.project) ?? { project: s.project, sessions: 0, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, lastActivity: "", topSkills: [] as string[] };
@@ -210,6 +213,7 @@ export async function aggregateReport(): Promise<ReportData> {
     projects,
     totals: {
       tokens: totalTokens,
+      inputTokens: totalInputTokens,
       sessions: sessions.length,
       activeDays: daily.length,
       cacheCreationTokens: totalCacheCreation,

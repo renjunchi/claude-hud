@@ -70,8 +70,9 @@ export async function generateReportHTML(data: ReportData): Promise<string> {
       ? (speed >= 1000 ? `${formatTokenCount(Math.round(speed))} tok/s` : speed >= 10 ? `${Math.round(speed)} tok/s` : `${speed.toFixed(1)} tok/s`)
       : "-";
     const durationStr = durationSec >= 1 ? formatDuration(durationSec) : "-";
-    const cacheHitRate = s.inputTokens > 0 && s.cacheReadTokens > 0
-      ? `${Math.round(s.cacheReadTokens / s.inputTokens * 100)}%`
+    const totalInput = s.inputTokens + s.cacheCreationTokens + s.cacheReadTokens;
+    const cacheHitRate = totalInput > 0 && s.cacheReadTokens > 0
+      ? `${Math.round(s.cacheReadTokens / totalInput * 100)}%`
       : "-";
     return `
     <tr>
@@ -124,7 +125,7 @@ ${chartJs ? `<script>${chartJs}</script>` : `<script src="${CHARTJS_CDN}"></scri
   <div class="card"><div class="label">总会话数</div><div class="value">${data.totals.sessions}</div></div>
   <div class="card"><div class="label">总 Token 数</div><div class="value">${formatTokenCount(data.totals.tokens)}</div></div>
   <div class="card"><div class="label">活跃天数</div><div class="value">${data.totals.activeDays}</div></div>
-  <div class="card"><div class="label">Cache 命中率</div><div class="value">${data.totals.cacheReadTokens > 0 ? Math.round(data.totals.cacheReadTokens / (data.totals.tokens + data.totals.cacheReadTokens) * 100) : 0}%</div></div>
+  <div class="card"><div class="label">Cache 命中率</div><div class="value">${(() => { const t = data.totals.inputTokens + data.totals.cacheCreationTokens + data.totals.cacheReadTokens; return t > 0 ? Math.round(data.totals.cacheReadTokens / t * 100) : 0; })()}%</div></div>
   <div class="card"><div class="label">Skill 种类</div><div class="value">${data.skillRanking.length}</div></div>
 </div>
 
