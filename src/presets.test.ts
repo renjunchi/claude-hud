@@ -87,13 +87,14 @@ describe("resolvePresetConfig", () => {
     expect(config.showTools).toBe(false);
   });
 
-  test("scenario D: only show, no preset → custom base", async () => {
+  test("scenario D: only show, no preset → full base with overrides", async () => {
     await writeFile(configPath, JSON.stringify({ show: { model: true } }));
     const config = await resolvePresetConfig(configPath);
     expect(config.showModel).toBe(true);
-    expect(config.showContextBar).toBe(false);
-    expect(config.showRateLimits).toBe(false);
-    expect(config.showSessions).toBe(false);
+    // 基于 full preset，未被 show 覆盖的字段保持 full 默认值
+    expect(config.showContextBar).toBe(true);
+    expect(config.showRateLimits).toBe(true);
+    expect(config.showSessions).toBe(true);
   });
 
   test("env var overrides file preset, show still applies", async () => {
@@ -127,9 +128,10 @@ describe("resolvePresetConfig", () => {
   });
 
   test("non-boolean show value is ignored", async () => {
-    await writeFile(configPath, JSON.stringify({ show: { model: "yes", contextBar: true } }));
+    // 使用 custom preset 作为基础，确保非 boolean 值被忽略而非应用
+    await writeFile(configPath, JSON.stringify({ preset: "custom", show: { model: "yes", contextBar: true } }));
     const config = await resolvePresetConfig(configPath);
-    expect(config.showModel).toBe(false); // "yes" is not boolean, ignored
+    expect(config.showModel).toBe(false); // "yes" is not boolean, ignored; custom base = false
     expect(config.showContextBar).toBe(true);
   });
 

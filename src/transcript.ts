@@ -195,6 +195,7 @@ function processEntry(
           description: (input?.description as string) ?? undefined,
           status: "running",
         });
+      // 过滤 Claude Code 内部任务管理工具，这些工具在 HUD 中无展示价值且产生噪音
       } else if (block.name !== "TodoWrite" && block.name !== "TaskCreate" && block.name !== "TaskUpdate") {
         toolMap.set(block.id, {
           id: block.id,

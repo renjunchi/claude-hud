@@ -6,11 +6,12 @@ import { renderTokenUsageLine } from "./token-usage";
 import { renderSessionsLine } from "./sessions";
 import { scanActiveSessions } from "../sessions";
 
-/** Safely execute a render function, return null on error */
+/** Safely execute a render function, return null on error (log to stderr) */
 async function safe<T>(fn: () => T | Promise<T>): Promise<T | null> {
   try {
     return await fn();
-  } catch {
+  } catch (err) {
+    console.error(`[claude-hud] render error: ${err instanceof Error ? err.message : err}`);
     return null;
   }
 }

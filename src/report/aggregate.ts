@@ -63,6 +63,21 @@ const BUILTIN_COMMANDS = new Set([
   "doctor", "login", "logout", "status", "review",
 ]);
 
+/** 已知模型 ID 模式 → 分类名称（使用正则避免脆弱的 includes 匹配） */
+const MODEL_TIER_PATTERNS: [RegExp, string][] = [
+  [/\bopus\b/i, "Opus"],
+  [/\bsonnet\b/i, "Sonnet"],
+  [/\bhaiku\b/i, "Haiku"],
+];
+
+/** 将模型 ID 分类为展示层级（Opus/Sonnet/Haiku/Other） */
+export function classifyModelTier(modelId: string): string {
+  for (const [pattern, tier] of MODEL_TIER_PATTERNS) {
+    if (pattern.test(modelId)) return tier;
+  }
+  return "Other";
+}
+
 interface TranscriptEntry {
   type?: string;
   sessionId?: string;
@@ -109,6 +124,20 @@ export async function aggregateReport(): Promise<ReportData> {
 
   for (const file of files) {
     await parseFile(file.path, file.project, dailyMap, sessionMap, modelMap, projectSkillMap);
+  }
+
+  // 在所有文件解析完毕后统一计算每日会话数（避免在 parseFile 内重复覆盖）
+  const sessionsPerDay = new Map<string, Set<string>>();
+  for (const [sid, s] of sessionMap) {
+    const date = s.firstActivity.slice(0, 10);
+    if (!date) continue;
+    const set = sessionsPerDay.get(date) ?? new Set();
+    set.add(sid);
+    sessionsPerDay.set(date, set);
+  }
+  for (const [date, set] of sessionsPerDay) {
+    const d = dailyMap.get(date);
+    if (d) d.sessions = set.size;
   }
 
   const daily = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
@@ -281,7 +310,7 @@ async function parseFile(
     sessionMap.set(sid, s);
 
     // Model breakdown
-    const tier = model.includes("opus") ? "Opus" : model.includes("haiku") ? "Haiku" : model.includes("sonnet") ? "Sonnet" : "Other";
+    const tier = classifyModelTier(model);
     const m = modelMap.get(tier) ?? { tokens: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 };
     m.tokens += input + output;
     m.inputTokens += input;
@@ -322,17 +351,4 @@ async function parseFile(
     projectSkillMap.set(project, skills);
   }
 
-  // Count unique sessions per day
-  const sessionsPerDay = new Map<string, Set<string>>();
-  for (const [sid, s] of sessionMap) {
-    const date = s.firstActivity.slice(0, 10);
-    if (!date) continue;
-    const set = sessionsPerDay.get(date) ?? new Set();
-    set.add(sid);
-    sessionsPerDay.set(date, set);
-  }
-  for (const [date, set] of sessionsPerDay) {
-    const d = dailyMap.get(date);
-    if (d) d.sessions = set.size;
-  }
 }

@@ -112,8 +112,8 @@ export async function resolvePresetConfig(
       base = { ...PRESETS.full };
     }
   } else if (showOverrides) {
-    // Scenario D: no preset but show present → custom base
-    base = { ...CUSTOM_BASE };
+    // Scenario D: 无 preset 但有 show → 基于 full preset 叠加覆盖（更符合用户直觉）
+    base = { ...PRESETS.full };
   } else {
     base = { ...PRESETS.full };
   }

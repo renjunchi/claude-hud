@@ -26,12 +26,14 @@ export function getContextPercent(stdin: StdinData): number {
   }
 
   // Fallback: manual calculation
+  // context_window_size 代表总上下文容量（输入+输出），需同时计入 output_tokens
   const usage = cw.current_usage;
   const size = cw.context_window_size;
   if (!usage || !size || size === 0) return 0;
 
   const totalTokens =
     (usage.input_tokens ?? 0) +
+    (usage.output_tokens ?? 0) +
     (usage.cache_creation_input_tokens ?? 0) +
     (usage.cache_read_input_tokens ?? 0);
 

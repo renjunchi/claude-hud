@@ -1,5 +1,6 @@
 import { join } from "path";
 import { homedir } from "os";
+import { mkdirSync } from "fs";
 
 export interface SessionInfo {
   sessionId: string;
@@ -15,42 +16,61 @@ interface SessionFileInfo {
 
 const HISTORY_PATH = join(homedir(), ".claude", "history.jsonl");
 const SESSIONS_DIR = join(homedir(), ".claude", "sessions");
+const CACHE_DIR = join(homedir(), ".claude", "claude-hud-cache");
+const SESSIONS_CACHE_PATH = join(CACHE_DIR, "sessions-state.json");
 const ACTIVE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
 
-// Cache for session PID map (refreshed every 5s)
-let pidMapCache: Map<string, SessionFileInfo> | null = null;
-let pidMapCacheTime = 0;
+// 文件缓存 TTL（进程无状态，内存缓存无意义，改用磁盘缓存）
 const PID_MAP_CACHE_TTL_MS = 5_000;
-
-// Cache for process alive checks (refreshed every 2s)
-const aliveCache = new Map<number, { alive: boolean; checkedAt: number }>();
 const ALIVE_CACHE_TTL_MS = 2_000;
+
+interface SessionsCacheFile {
+  pidMap: { entries: [string, SessionFileInfo][]; cachedAt: number };
+  aliveMap: { entries: [number, { alive: boolean; checkedAt: number }][]; cachedAt: number };
+}
+
+/** 读取磁盘缓存 */
+async function readCache(): Promise<SessionsCacheFile | null> {
+  try {
+    const file = Bun.file(SESSIONS_CACHE_PATH);
+    if (await file.exists()) {
+      return await file.json();
+    }
+  } catch {
+    // 缓存损坏，忽略
+  }
+  return null;
+}
+
+/** 写入磁盘缓存（非致命） */
+async function writeCache(cache: SessionsCacheFile): Promise<void> {
+  try {
+    mkdirSync(CACHE_DIR, { recursive: true });
+    await Bun.write(SESSIONS_CACHE_PATH, JSON.stringify(cache));
+  } catch {
+    // 忽略
+  }
+}
 
 /** Check if a process is still alive via signal 0 */
 export function isProcessAlive(pid: number): boolean {
-  const now = Date.now();
-  const cached = aliveCache.get(pid);
-  if (cached && now - cached.checkedAt < ALIVE_CACHE_TTL_MS) {
-    return cached.alive;
-  }
-
-  let alive: boolean;
   try {
     process.kill(pid, 0);
-    alive = true;
+    return true;
   } catch (err: unknown) {
-    alive = (err as NodeJS.ErrnoException).code === "EPERM"; // EPERM = process exists but no permission
+    return (err as NodeJS.ErrnoException).code === "EPERM"; // EPERM = process exists but no permission
   }
-
-  aliveCache.set(pid, { alive, checkedAt: now });
-  return alive;
 }
 
 /** Build sessionId → { pid, name } map from ~/.claude/sessions/*.json */
-export async function buildSessionPidMap(): Promise<Map<string, SessionFileInfo>> {
+export async function buildSessionPidMap(
+  diskCache: SessionsCacheFile | null,
+): Promise<{ map: Map<string, SessionFileInfo>; fromCache: boolean }> {
   const now = Date.now();
-  if (pidMapCache && now - pidMapCacheTime < PID_MAP_CACHE_TTL_MS) {
-    return pidMapCache;
+
+  // 检查磁盘缓存是否仍然有效
+  if (diskCache?.pidMap && now - diskCache.pidMap.cachedAt < PID_MAP_CACHE_TTL_MS) {
+    return { map: new Map(diskCache.pidMap.entries), fromCache: true };
   }
 
   const map = new Map<string, SessionFileInfo>();
@@ -70,9 +90,26 @@ export async function buildSessionPidMap(): Promise<Map<string, SessionFileInfo>
     // sessions dir may not exist
   }
 
-  pidMapCache = map;
-  pidMapCacheTime = now;
-  return map;
+  return { map, fromCache: false };
+}
+
+/** 检查进程存活状态（带磁盘缓存） */
+function checkProcessAlive(
+  pid: number,
+  diskCache: SessionsCacheFile | null,
+): { alive: boolean; fromCache: boolean } {
+  const now = Date.now();
+
+  // 检查磁盘缓存
+  if (diskCache?.aliveMap) {
+    const aliveEntries = new Map(diskCache.aliveMap.entries);
+    const cached = aliveEntries.get(pid);
+    if (cached && now - cached.checkedAt < ALIVE_CACHE_TTL_MS) {
+      return { alive: cached.alive, fromCache: true };
+    }
+  }
+
+  return { alive: isProcessAlive(pid), fromCache: false };
 }
 
 interface HistoryEntry {
@@ -142,16 +179,48 @@ export async function scanActiveSessions(currentTranscriptPath?: string): Promis
     }
   }
 
+  // 读取磁盘缓存
+  const diskCache = await readCache();
+
   // Verify sessions are still alive via PID check
-  const pidMap = await buildSessionPidMap();
+  const { map: pidMap, fromCache: pidFromCache } = await buildSessionPidMap(diskCache);
   const results: SessionInfo[] = [];
+  const aliveUpdates = new Map<number, { alive: boolean; checkedAt: number }>();
 
   for (const [sessionId, data] of sessions) {
     const info = pidMap.get(sessionId);
-    if (info === undefined || !isProcessAlive(info.pid)) {
-      continue; // no session file or confirmed dead — skip
+    if (info === undefined) continue;
+
+    const { alive, fromCache: aliveFromCache } = checkProcessAlive(info.pid, diskCache);
+    if (!aliveFromCache) {
+      aliveUpdates.set(info.pid, { alive, checkedAt: now });
     }
+    if (!alive) continue;
+
     results.push({ sessionId, ...data, name: info.name });
+  }
+
+  // 更新磁盘缓存（仅在有变化时写入）
+  if (!pidFromCache || aliveUpdates.size > 0) {
+    const existingAlive = diskCache?.aliveMap
+      ? new Map(diskCache.aliveMap.entries)
+      : new Map<number, { alive: boolean; checkedAt: number }>();
+    for (const [pid, status] of aliveUpdates) {
+      existingAlive.set(pid, status);
+    }
+
+    const newCache: SessionsCacheFile = {
+      pidMap: {
+        entries: Array.from(pidMap.entries()),
+        cachedAt: pidFromCache ? (diskCache?.pidMap?.cachedAt ?? now) : now,
+      },
+      aliveMap: {
+        entries: Array.from(existingAlive.entries()),
+        cachedAt: now,
+      },
+    };
+    // 异步写入，不阻塞返回
+    writeCache(newCache);
   }
 
   // Sort by most recent first
