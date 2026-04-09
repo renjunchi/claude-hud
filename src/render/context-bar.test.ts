@@ -98,9 +98,12 @@ describe("renderRateLimitsLine", () => {
     expect(renderRateLimitsLine(makeCtx({ presetConfig: PRESETS.minimal }))).toBeNull();
   });
 
-  test("returns null when no rate limit data", () => {
+  test("shows 0% when no rate limit data", () => {
     const ctx = makeCtx({ stdin: { rate_limits: null } });
-    expect(renderRateLimitsLine(ctx)).toBeNull();
+    const line = stripAnsi(renderRateLimitsLine(ctx)!);
+    expect(line).toContain("Current");
+    expect(line).toContain("0%");
+    expect(line).toContain("All");
   });
 
   test("shows both Current and All sections", () => {
@@ -116,7 +119,7 @@ describe("renderRateLimitsLine", () => {
     expect(line).toMatch(/↻\d+ hr|\d+ min/);
   });
 
-  test("shows only 5h when 7d is missing", () => {
+  test("shows Current with data and All with 0% when 7d is missing", () => {
     const ctx = makeCtx({
       stdin: {
         rate_limits: {
@@ -127,10 +130,11 @@ describe("renderRateLimitsLine", () => {
     });
     const line = stripAnsi(renderRateLimitsLine(ctx)!);
     expect(line).toContain("Current");
-    expect(line).not.toContain("All");
+    expect(line).toContain("15%");
+    expect(line).toContain("All");
   });
 
-  test("shows only 7d when 5h is missing", () => {
+  test("shows All with data and Current with 0% when 5h is missing", () => {
     const ctx = makeCtx({
       stdin: {
         rate_limits: {
@@ -140,7 +144,8 @@ describe("renderRateLimitsLine", () => {
       },
     });
     const line = stripAnsi(renderRateLimitsLine(ctx)!);
-    expect(line).not.toContain("Current");
+    expect(line).toContain("Current");
     expect(line).toContain("All");
+    expect(line).toContain("5%");
   });
 });

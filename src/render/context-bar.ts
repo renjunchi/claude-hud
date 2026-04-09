@@ -68,20 +68,19 @@ export function renderRateLimitsLine(ctx: RenderContext): string | null {
   const preset = ctx.presetConfig;
   if (!preset.showRateLimits) return null;
 
-  const rl5h = getRateLimit5h(ctx.stdin);
-  const rl7d = getRateLimit7d(ctx.stdin);
-  if (!rl5h && !rl7d) return null;
+  const rl5h = getRateLimit5h(ctx.stdin) ?? { percent: 0, resetsAt: null };
+  const rl7d = getRateLimit7d(ctx.stdin) ?? { percent: 0, resetsAt: null };
 
   const barWidth = ctx.termWidth > 100 ? 10 : 6;
   const parts: string[] = [];
 
-  if (rl5h) {
+  {
     const bar = renderBar(rl5h.percent, barWidth);
     const resetStr = rl5h.resetsAt ? ` ↻${formatResetCountdown(rl5h.resetsAt)}` : "";
     parts.push(`${color("Current", dim)} ${bar} ${rl5h.percent}%${color(resetStr, gray)}`);
   }
 
-  if (rl7d) {
+  {
     const bar = renderBar(rl7d.percent, barWidth);
     const resetStr = rl7d.resetsAt ? ` ↻${formatResetAbsolute(rl7d.resetsAt)}` : "";
     parts.push(`${color("All", dim)} ${bar} ${rl7d.percent}%${color(resetStr, gray)}`);
