@@ -98,12 +98,9 @@ describe("renderRateLimitsLine", () => {
     expect(renderRateLimitsLine(makeCtx({ presetConfig: PRESETS.minimal }))).toBeNull();
   });
 
-  test("shows 0% when no rate limit data", () => {
+  test("returns null when no rate limit data", () => {
     const ctx = makeCtx({ stdin: { rate_limits: null } });
-    const line = stripAnsi(renderRateLimitsLine(ctx)!);
-    expect(line).toContain("Current");
-    expect(line).toContain("0%");
-    expect(line).toContain("All");
+    expect(renderRateLimitsLine(ctx)).toBeNull();
   });
 
   test("shows both Current and All sections", () => {

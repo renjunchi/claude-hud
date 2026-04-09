@@ -68,22 +68,25 @@ export function renderRateLimitsLine(ctx: RenderContext): string | null {
   const preset = ctx.presetConfig;
   if (!preset.showRateLimits) return null;
 
-  const rl5h = getRateLimit5h(ctx.stdin) ?? { percent: 0, resetsAt: null };
-  const rl7d = getRateLimit7d(ctx.stdin) ?? { percent: 0, resetsAt: null };
+  const rl5h = getRateLimit5h(ctx.stdin);
+  const rl7d = getRateLimit7d(ctx.stdin);
+  if (!rl5h && !rl7d) return null;
 
   const barWidth = ctx.termWidth > 100 ? 10 : 6;
   const parts: string[] = [];
 
   {
-    const bar = renderBar(rl5h.percent, barWidth);
-    const resetStr = rl5h.resetsAt ? ` ↻${formatResetCountdown(rl5h.resetsAt)}` : "";
-    parts.push(`${color("Current", dim)} ${bar} ${rl5h.percent}%${color(resetStr, gray)}`);
+    const r = rl5h ?? { percent: 0, resetsAt: null };
+    const bar = renderBar(r.percent, barWidth);
+    const resetStr = r.resetsAt ? ` ↻${formatResetCountdown(r.resetsAt)}` : "";
+    parts.push(`${color("Current", dim)} ${bar} ${r.percent}%${color(resetStr, gray)}`);
   }
 
   {
-    const bar = renderBar(rl7d.percent, barWidth);
-    const resetStr = rl7d.resetsAt ? ` ↻${formatResetAbsolute(rl7d.resetsAt)}` : "";
-    parts.push(`${color("All", dim)} ${bar} ${rl7d.percent}%${color(resetStr, gray)}`);
+    const r = rl7d ?? { percent: 0, resetsAt: null };
+    const bar = renderBar(r.percent, barWidth);
+    const resetStr = r.resetsAt ? ` ↻${formatResetAbsolute(r.resetsAt)}` : "";
+    parts.push(`${color("All", dim)} ${bar} ${r.percent}%${color(resetStr, gray)}`);
   }
 
   return parts.join(color(" │ ", gray));
