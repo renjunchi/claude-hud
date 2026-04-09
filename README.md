@@ -19,6 +19,7 @@ Current ▰▰▰▱▱▱▱▱▱▱ 32% ↻2 hr 35 min │ All ▰▰▰▰�
 - **Token 用量** — 累计 input/output tokens
 - **用量报告** — 生成带图表的 HTML 报告
 - **显示预设** — full / essential / minimal 三种模式
+- **自动更新** — 每次会话启动时后台检查，无感更新，下次会话生效
 
 ## 快速开始
 
@@ -42,7 +43,9 @@ T=~/.claude/plugins/claude-hud
 
 这会自动 clone（或更新）到 `~/.claude/plugins/claude-hud`，安装依赖并配置 statusline。
 
-> 已安装过？再次运行同一命令即可更新，无需手动删除。
+安装后会注册 SessionStart hook，每次会话启动时自动检查更新（1 小时冷却），后台静默完成，下次会话生效。
+
+> 已安装过？再次运行同一命令即可手动更新，或等待自动更新。
 
 **Windows (PowerShell)：**
 

@@ -102,14 +102,60 @@ with open(inst_file, "w") as f:
 PYEOF
 echo "Registered plugin: claude-hud@claude-hud-local"
 
-# 9. Enable plugin (plugins are disabled by default after manual registration)
+# 9. Clean old version cache directories
+for old_dir in "$CLAUDE_DIR/plugins/cache/claude-hud-local/claude-hud/"*/; do
+  if [ -d "$old_dir" ] && [ "$old_dir" != "$CACHE_DIR/" ]; then
+    rm -rf "$old_dir"
+  fi
+done
+
+# 10. Enable plugin (plugins are disabled by default after manual registration)
 claude plugin enable claude-hud@claude-hud-local 2>/dev/null || true
 
-# 10. Configure statusline (use cache dir)
+# 11. Configure statusline (use cache dir)
 bun "$CACHE_DIR/src/index.ts" enable
+
+# 12. Register auto-update SessionStart hook in user-level settings
+python3 - "$SCRIPT_DIR/scripts/auto-update.sh" "${CLAUDE_DIR}/settings.json" <<'PYEOF'
+import json, sys, os
+
+update_script, settings_file = sys.argv[1], sys.argv[2]
+
+data = {}
+if os.path.exists(settings_file):
+    with open(settings_file) as f:
+        data = json.load(f)
+
+hooks = data.setdefault("hooks", {})
+session_hooks = hooks.setdefault("SessionStart", [])
+
+# 检查是否已注册（避免重复）
+hook_command = update_script
+already_registered = False
+for entry in session_hooks:
+    for h in entry.get("hooks", []):
+        if h.get("command", "").endswith("auto-update.sh"):
+            # 更新为最新路径
+            h["command"] = hook_command
+            already_registered = True
+
+if not already_registered:
+    session_hooks.append({
+        "matcher": "",
+        "hooks": [{
+            "type": "command",
+            "command": hook_command
+        }]
+    })
+
+with open(settings_file, "w") as f:
+    json.dump(data, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+PYEOF
+echo "Registered auto-update hook"
 
 echo ""
 echo "claude-hud installed successfully!"
 echo "  Plugin path: $CACHE_DIR"
-echo "  Commands: /claude-hud:enable, /claude-hud:disable, /claude-hud:report"
+echo "  Commands: /claude-hud:enable, /claude-hud:disable, /claude-hud:report, /claude-hud:update"
 echo "  Please restart Claude Code to activate."
