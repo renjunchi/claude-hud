@@ -46,7 +46,14 @@ echo "正在重新安装..."
 NEW_SHA=$(git -C "$PLUGIN_DIR" rev-parse HEAD)
 echo ""
 echo "✓ 更新完成: ${LOCAL_SHA:0:7} → ${NEW_SHA:0:7}"
-echo "请重启 Claude Code 以激活新版本。"
+
+# 智能判断是否需要重启
+CHANGED_FILES=$(git -C "$PLUGIN_DIR" diff --name-only "$LOCAL_SHA" "$NEW_SHA" 2>/dev/null || echo "")
+if echo "$CHANGED_FILES" | grep -qE '^(commands/|\.claude/)'; then
+  echo "请重启 Claude Code 以激活新版本（检测到 commands 或 hooks 变更）。"
+else
+  echo "✓ 更新已即时生效，无需重启。"
+fi
 ```
 
 4. Tell the user the update result based on the command output.

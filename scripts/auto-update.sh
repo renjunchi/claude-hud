@@ -109,10 +109,19 @@ fi
 
   # 记录更新结果
   NEW_SHA=$(git -C "$PLUGIN_DIR" rev-parse HEAD 2>/dev/null || echo "unknown")
+
+  # 智能判断是否需要重启
+  CHANGED_FILES=$(git -C "$PLUGIN_DIR" diff --name-only "$LOCAL_SHA" "$NEW_SHA" 2>/dev/null || echo "")
+  NEED_RESTART=false
+  if echo "$CHANGED_FILES" | grep -qE '^(commands/|\.claude/)'; then
+    NEED_RESTART=true
+  fi
+
   cat > "$LAST_UPDATE_FILE" <<EOF
 updated_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 from_sha=$LOCAL_SHA
 to_sha=$NEW_SHA
+need_restart=$NEED_RESTART
 EOF
 
   # 清理回滚文件（更新成功）
