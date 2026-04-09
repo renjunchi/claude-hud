@@ -56,7 +56,14 @@ interface ContentBlock {
   input?: Record<string, unknown>;
 }
 
-interface AssistantEntry {
+/** Claude Code 内置命令，非 skill，不计入排行 */
+const BUILTIN_COMMANDS = new Set([
+  "usage", "config", "init", "mcp", "skills", "plugin",
+  "reload-plugins", "help", "clear", "compact", "cost",
+  "doctor", "login", "logout", "status", "review",
+]);
+
+interface TranscriptEntry {
   type?: string;
   sessionId?: string;
   timestamp?: string;
@@ -69,7 +76,7 @@ interface AssistantEntry {
       cache_read_input_tokens?: number;
       output_tokens?: number;
     };
-    content?: ContentBlock[];
+    content?: ContentBlock[] | string;
   };
 }
 
@@ -126,17 +133,38 @@ export async function aggregateReport(): Promise<ReportData> {
     if (s.lastActivity > p.lastActivity) p.lastActivity = s.lastActivity;
     projectMap.set(s.project, p);
   }
+  // 归一化 skill 名称：将短名（如 "report"）合并到全限定名（如 "claude-hud:report"）
+  // 先收集所有全限定名，建立 shortName → qualifiedName 映射
+  const allNames = new Set<string>();
+  for (const skills of projectSkillMap.values()) {
+    for (const name of skills.keys()) allNames.add(name);
+  }
+  const shortToQualified = new Map<string, string>();
+  for (const name of allNames) {
+    if (name.includes(":")) {
+      const shortName = name.split(":").pop()!;
+      // 仅当短名也独立存在时才建立映射
+      if (allNames.has(shortName)) {
+        shortToQualified.set(shortName, name);
+      }
+    }
+  }
+
   // Compute top 5 skills per project and global skill ranking
   const globalSkillMap = new Map<string, number>();
   for (const [proj, skills] of projectSkillMap) {
     const p = projectMap.get(proj);
-    // Accumulate global counts
+    // Accumulate global counts（归一化名称）
     for (const [name, count] of skills) {
-      globalSkillMap.set(name, (globalSkillMap.get(name) ?? 0) + count);
+      const normalized = shortToQualified.get(name) ?? name;
+      globalSkillMap.set(normalized, (globalSkillMap.get(normalized) ?? 0) + count);
     }
     if (!p || skills.size === 0) continue;
     const sorted = Array.from(skills.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    p.topSkills = sorted.map(([name, count]) => count > 1 ? `${name} (x${count})` : name);
+    p.topSkills = sorted.map(([name, count]) => {
+      const normalized = shortToQualified.get(name) ?? name;
+      return count > 1 ? `${normalized} (x${count})` : normalized;
+    });
   }
   const skillRanking = Array.from(globalSkillMap.entries())
     .sort((a, b) => b[1] - a[1])
@@ -179,23 +207,32 @@ async function parseFile(
     return;
   }
 
+  // 两类 skill 调用来源，需去重
+  const commandNameSkills = new Set<string>(); // <command-name> 标签（用户 slash command）
+  const fileSkills: string[] = [];              // 最终计入的 skill（来自 command-name）
+  const toolUseSkills: string[] = [];           // Skill tool_use（assistant 调用）
+
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;
-    let entry: AssistantEntry;
+    let entry: TranscriptEntry;
     try {
       entry = JSON.parse(line);
     } catch {
       continue;
     }
 
-    // Extract Skill usage from assistant content blocks
-    if (entry.type === "assistant" && entry.message?.content) {
-      for (const block of entry.message.content) {
+    // 收集 skill 使用数据，稍后统一去重写入
+    if (entry.type === "user" && typeof entry.message?.content === "string") {
+      const match = entry.message.content.match(/<command-name>\/([^<]+)<\/command-name>/);
+      if (match && !BUILTIN_COMMANDS.has(match[1])) {
+        commandNameSkills.add(match[1]);
+        fileSkills.push(match[1]);
+      }
+    }
+    if (entry.type === "assistant" && Array.isArray(entry.message?.content)) {
+      for (const block of entry.message.content as ContentBlock[]) {
         if (block.type === "tool_use" && block.name === "Skill" && block.input?.skill) {
-          const skillName = block.input.skill as string;
-          const skills = projectSkillMap.get(project) ?? new Map<string, number>();
-          skills.set(skillName, (skills.get(skillName) ?? 0) + 1);
-          projectSkillMap.set(project, skills);
+          toolUseSkills.push(block.input.skill as string);
         }
       }
     }
@@ -252,6 +289,37 @@ async function parseFile(
     m.cacheReadTokens += cacheRead;
     m.cacheCreationTokens += cacheCreation;
     modelMap.set(tier, m);
+  }
+
+  // 归一化 tool_use skill 到短名并去重（同一次调用可能同时产生全限定名和短名）
+  const seenToolSkills = new Set<string>();
+  const dedupedToolUseSkills: string[] = [];
+  for (const name of toolUseSkills) {
+    const shortName = name.includes(":") ? name.split(":").pop()! : name;
+    if (!seenToolSkills.has(shortName)) {
+      seenToolSkills.add(shortName);
+      dedupedToolUseSkills.push(shortName);
+    }
+  }
+
+  // Skill tool_use 去重：仅计入没有对应 <command-name> 的调用
+  for (const name of dedupedToolUseSkills) {
+    // 跳过已被 <command-name> 覆盖的（精确匹配或后缀匹配，如 "report" 匹配 "claude-hud:report"）
+    if (commandNameSkills.has(name)) continue;
+    let covered = false;
+    for (const cmd of commandNameSkills) {
+      if (name.endsWith(":" + cmd)) { covered = true; break; }
+    }
+    if (!covered) fileSkills.push(name);
+  }
+
+  // 写入 projectSkillMap
+  if (fileSkills.length > 0) {
+    const skills = projectSkillMap.get(project) ?? new Map<string, number>();
+    for (const name of fileSkills) {
+      skills.set(name, (skills.get(name) ?? 0) + 1);
+    }
+    projectSkillMap.set(project, skills);
   }
 
   // Count unique sessions per day

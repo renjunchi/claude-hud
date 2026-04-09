@@ -12,10 +12,11 @@ function makeData(): ReportData {
       { sessionId: "abc", project: "my-app", firstActivity: "2026-04-07T10:00:00Z", lastActivity: "2026-04-07T11:00:00Z", model: "claude-opus-4-6", inputTokens: 10000, outputTokens: 2000, cacheCreationTokens: 1000, cacheReadTokens: 4000 },
     ],
     projects: [
-      { project: "my-app", sessions: 1, inputTokens: 10000, outputTokens: 2000, cacheCreationTokens: 1000, cacheReadTokens: 4000, lastActivity: "2026-04-07T11:00:00Z" },
+      { project: "my-app", sessions: 1, inputTokens: 10000, outputTokens: 2000, cacheCreationTokens: 1000, cacheReadTokens: 4000, lastActivity: "2026-04-07T11:00:00Z", topSkills: [] },
     ],
     totals: { tokens: 18000, sessions: 1, activeDays: 2, cacheCreationTokens: 1500, cacheReadTokens: 6000 },
     modelBreakdown: { Opus: { tokens: 18000, inputTokens: 15000, outputTokens: 3000, cacheReadTokens: 6000, cacheCreationTokens: 1500 } },
+    skillRanking: [],
     generatedAt: "2026-04-07T12:00:00Z",
   };
 }
