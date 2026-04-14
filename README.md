@@ -1,4 +1,4 @@
-# claude-hud
+# cli-hud
 
 [Claude Code](https://claude.ai/code) 终端状态栏 HUD。实时显示上下文窗口、Rate Limits、活跃工具和多会话监控。
 
@@ -34,14 +34,14 @@ curl -fsSL https://bun.sh/install | bash
 ### 2. 一键安装
 
 ```bash
-REPO=ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git
-T=~/.claude/plugins/claude-hud
+REPO=ssh://git@10.10.2.124:2222/junchi.ren/cli-hud.git
+T=~/.claude/plugins/cli-hud
 [ -d "$T/.git" ] && git -C "$T" pull --ff-only \
   || { rm -rf "$T" && git clone "$REPO" "$T"; }
 "$T/install.sh"
 ```
 
-这会自动 clone（或更新）到 `~/.claude/plugins/claude-hud`，安装依赖并配置 statusline。
+这会自动 clone（或更新）到 `~/.claude/plugins/cli-hud`，安装依赖并配置 statusline。
 
 安装后会注册 SessionStart hook，每次会话启动时自动检查更新（1 小时冷却），后台静默完成，下次会话生效。
 
@@ -50,8 +50,8 @@ T=~/.claude/plugins/claude-hud
 **Windows (PowerShell)：**
 
 ```powershell
-$Repo = "ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git"
-$T = "$env:USERPROFILE\.claude\plugins\claude-hud"
+$Repo = "ssh://git@10.10.2.124:2222/junchi.ren/cli-hud.git"
+$T = "$env:USERPROFILE\.claude\plugins\cli-hud"
 if (Test-Path "$T\.git") { git -C $T pull --ff-only }
 elseif (Test-Path $T) { Remove-Item -Recurse -Force $T; git clone $Repo $T }
 else { git clone $Repo $T }
@@ -60,7 +60,7 @@ else { git clone $Repo $T }
 
 ### 3. 重启 Claude Code
 
-关闭当前 Claude Code 会话，重新打开。底部应该出现 claude-hud 状态栏：
+关闭当前 Claude Code 会话，重新打开。底部应该出现 cli-hud 状态栏：
 
 ```
 [Opus 4.6 (1M context)] │ Context ▰▱▱▱▱▱▱▱▱▱ 4% │ ⎇ main
@@ -72,7 +72,7 @@ Current ▰▰▱▱▱▱▱▱▱▱ 15% ↻3 hr 35 min │ All ▰▱▱▱�
 在 Claude Code 中直接输入：
 
 ```
-/claude-hud:report
+/cli-hud:report
 ```
 
 或通过命令行：
@@ -89,7 +89,7 @@ bun run src/index.ts report
 
 ```bash
 # 创建配置文件
-echo '{ "preset": "essential" }' > ~/.claude/claude-hud.json
+echo '{ "preset": "essential" }' > ~/.claude/cli-hud.json
 ```
 
 可选值：`full`（默认，最全）、`essential`（中等）、`minimal`（最简）。
@@ -100,23 +100,23 @@ echo '{ "preset": "essential" }' > ~/.claude/claude-hud.json
 
 ```bash
 # 基于 full 预设，关闭会话监控
-echo '{ "preset": "full", "show": { "sessions": false } }' > ~/.claude/claude-hud.json
+echo '{ "preset": "full", "show": { "sessions": false } }' > ~/.claude/cli-hud.json
 
 # 完全自定义：只显示模型 + 上下文 + Rate Limits
-echo '{ "show": { "model": true, "contextBar": true, "rateLimits": true } }' > ~/.claude/claude-hud.json
+echo '{ "show": { "model": true, "contextBar": true, "rateLimits": true } }' > ~/.claude/cli-hud.json
 ```
 
 `show` 可用的键：`model`、`contextBar`、`project`、`rateLimits`、`tools`、`agents`、`tokenUsage`、`sessions`。
 
 ### 关闭 / 恢复原生
 
-在 Claude Code 中输入 `/claude-hud:disable`，或通过命令行：
+在 Claude Code 中输入 `/cli-hud:disable`，或通过命令行：
 
 ```bash
 bun run src/index.ts disable
 ```
 
-重启 Claude Code 后恢复原生状态栏。再次启用：`/claude-hud:enable` 或 `bun run src/index.ts enable`。
+重启 Claude Code 后恢复原生状态栏。再次启用：`/cli-hud:enable` 或 `bun run src/index.ts enable`。
 
 ## 命令
 
@@ -124,19 +124,19 @@ bun run src/index.ts disable
 
 | 命令 | 说明 |
 |------|------|
-| `/claude-hud:enable` | 启用 statusline |
-| `/claude-hud:disable` | 关闭 statusline，恢复原生状态栏 |
-| `/claude-hud:report` | 生成 HTML 用量报告并打开浏览器 |
+| `/cli-hud:enable` | 启用 statusline |
+| `/cli-hud:disable` | 关闭 statusline，恢复原生状态栏 |
+| `/cli-hud:report` | 生成 HTML 用量报告并打开浏览器 |
 
 ### CLI 命令
 
 | 命令 | 说明 |
 |------|------|
-| `claude-hud` | Statusline 模式（由 Claude Code 每 ~300ms 调用） |
-| `claude-hud enable` | 启用 statusline（等同于 `setup`） |
-| `claude-hud disable` | 关闭 statusline，恢复 Claude Code 原生状态栏 |
-| `claude-hud report` | 生成 HTML 用量报告并打开浏览器 |
-| `claude-hud report --no-open` | 仅生成报告不打开 |
+| `cli-hud` | Statusline 模式（由 Claude Code 每 ~300ms 调用） |
+| `cli-hud enable` | 启用 statusline（等同于 `setup`） |
+| `cli-hud disable` | 关闭 statusline，恢复 Claude Code 原生状态栏 |
+| `cli-hud report` | 生成 HTML 用量报告并打开浏览器 |
+| `cli-hud report --no-open` | 仅生成报告不打开 |
 
 ## 用量报告
 
@@ -144,7 +144,7 @@ bun run src/index.ts disable
 bun run src/index.ts report
 ```
 
-生成 `~/.claude/claude-hud-report.html`，包含：
+生成 `~/.claude/cli-hud-report.html`，包含：
 - 概览卡片（总会话数、总 tokens、活跃天数）
 - 每日 Token 消耗堆叠柱状图
 - 模型分布饼图（Opus/Sonnet/Haiku）
@@ -158,7 +158,7 @@ bun run src/index.ts report
 # 环境变量
 CLAUDE_HUD_PRESET=minimal
 
-# 配置文件：~/.claude/claude-hud.json
+# 配置文件：~/.claude/cli-hud.json
 { "preset": "essential" }
 ```
 
@@ -178,7 +178,7 @@ CLAUDE_HUD_PRESET=minimal
 
 ### 自定义配置
 
-在 `~/.claude/claude-hud.json` 中使用 `show` 字段自定义元素组合：
+在 `~/.claude/cli-hud.json` 中使用 `show` 字段自定义元素组合：
 
 ```jsonc
 // 基于预设覆盖个别开关
@@ -206,7 +206,7 @@ CLAUDE_HUD_PRESET=minimal
 
 ```bash
 bun test          # 运行 126 个测试
-bun run build     # 构建 dist/claude-hud.js (~19KB)
+bun run build     # 构建 dist/cli-hud.js (~19KB)
 ```
 
 ## 许可证

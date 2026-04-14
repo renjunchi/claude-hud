@@ -1,10 +1,10 @@
 #Requires -Version 5.1
 $ErrorActionPreference = "Stop"
 
-$Repo = "ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git"
-$Target = Join-Path $env:USERPROFILE ".claude" "plugins" "claude-hud"
+$Repo = "ssh://git@10.10.2.124:2222/junchi.ren/cli-hud.git"
+$Target = Join-Path $env:USERPROFILE ".claude" "plugins" "cli-hud"
 
-Write-Host "=== claude-hud bootstrap ===" -ForegroundColor Cyan
+Write-Host "=== cli-hud bootstrap ===" -ForegroundColor Cyan
 Write-Host ""
 
 if (Test-Path (Join-Path $Target ".git")) {

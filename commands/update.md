@@ -1,16 +1,16 @@
 ---
-description: Manually check and update claude-hud to the latest version
+description: Manually check and update cli-hud to the latest version
 allowed-tools: Bash, Read
 ---
 
-Manually update claude-hud plugin to the latest version.
+Manually update cli-hud plugin to the latest version.
 
 ## Steps
 
 1. Check if it's a git install and fetch remote:
 
 ```bash
-PLUGIN_DIR="${HOME}/.claude/plugins/claude-hud"
+PLUGIN_DIR="${HOME}/.claude/plugins/cli-hud"
 if [ ! -d "$PLUGIN_DIR/.git" ]; then
   echo "ERROR: Not a git install, cannot update."
   exit 1
@@ -28,12 +28,12 @@ else
 fi
 ```
 
-2. If the output shows "已是最新版本", tell the user claude-hud is already up to date and stop here.
+2. If the output shows "已是最新版本", tell the user cli-hud is already up to date and stop here.
 
 3. If a new version is found, pull and reinstall:
 
 ```bash
-PLUGIN_DIR="${HOME}/.claude/plugins/claude-hud"
+PLUGIN_DIR="${HOME}/.claude/plugins/cli-hud"
 LOCAL_SHA=$(git -C "$PLUGIN_DIR" rev-parse HEAD)
 echo "正在更新..."
 if ! git -C "$PLUGIN_DIR" pull --ff-only 2>&1; then

@@ -3,7 +3,7 @@ description: Generate HTML usage report with charts and session history
 allowed-tools: Bash
 ---
 
-Generate a claude-hud HTML report and open in browser.
+Generate a cli-hud HTML report and open in browser.
 
 ## Steps
 

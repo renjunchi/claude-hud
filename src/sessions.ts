@@ -19,7 +19,7 @@ interface SessionFileInfo {
 
 const HISTORY_PATH = join(homedir(), ".claude", "history.jsonl");
 const SESSIONS_DIR = join(homedir(), ".claude", "sessions");
-const CACHE_DIR = join(homedir(), ".claude", "claude-hud-cache");
+const CACHE_DIR = join(homedir(), ".claude", "cli-hud-cache");
 const SESSIONS_CACHE_PATH = join(CACHE_DIR, "sessions-state.json");
 const ACTIVE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
 

@@ -1,9 +1,9 @@
 ---
-description: Enable claude-hud statusline
+description: Enable cli-hud statusline
 allowed-tools: Bash, Read, Edit
 ---
 
-Enable claude-hud as the Claude Code statusline.
+Enable cli-hud as the Claude Code statusline.
 
 ## Steps
 
@@ -15,4 +15,4 @@ bun "${CLAUDE_PLUGIN_ROOT}/src/index.ts" enable
 
 2. Tell the user:
 
-> claude-hud enabled. **Please restart Claude Code** to see the HUD.
+> cli-hud enabled. **Please restart Claude Code** to see the HUD.

@@ -1,5 +1,5 @@
 ---
-title: "claude-hud PRD"
+title: "cli-hud PRD"
 doc_type: requirements
 version: 1.1.0
 status: draft
@@ -10,9 +10,9 @@ authors:
 tags:
   - prd
   - requirements
-  - claude-hud
+  - cli-hud
 ---
-# claude-hud PRD
+# cli-hud PRD
 
 > 产品需求文档 (Product Requirements Document)
 
@@ -125,7 +125,7 @@ tags:
 #### US-006: 快速安装配置
 
 - **作为** 个人开发者
-- **我想要** 5 分钟内完成 claude-hud 的安装和配置
+- **我想要** 5 分钟内完成 cli-hud 的安装和配置
 - **以便** 快速开始使用，无需复杂的环境搭建
 
 **验收标准：**
@@ -168,7 +168,7 @@ tags:
 **MVP 数据流：**
 
 ```
-Claude Code → stdin JSON → claude-hud 解析 → stdout formatted text → 终端状态栏
+Claude Code → stdin JSON → cli-hud 解析 → stdout formatted text → 终端状态栏
 ```
 
 **输入：**
@@ -236,7 +236,7 @@ Claude Code → stdin JSON → claude-hud 解析 → stdout formatted text → �
 {
   "statusLine": {
     "type": "command",
-    "command": "claude-hud"
+    "command": "cli-hud"
   }
 }
 ```

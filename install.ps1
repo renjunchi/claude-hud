@@ -7,7 +7,7 @@ $PluginsDir = Join-Path $ClaudeDir "plugins"
 $MarketplacesFile = Join-Path $PluginsDir "known_marketplaces.json"
 $InstalledFile = Join-Path $PluginsDir "installed_plugins.json"
 
-Write-Host "=== claude-hud installer ===" -ForegroundColor Cyan
+Write-Host "=== cli-hud installer ===" -ForegroundColor Cyan
 Write-Host ""
 
 # 1. Check bun
@@ -39,13 +39,13 @@ $marketplaces = @{}
 if (Test-Path $MarketplacesFile) {
     $marketplaces = Get-Content $MarketplacesFile -Raw | ConvertFrom-Json -AsHashtable
 }
-$marketplaces["claude-hud-local"] = @{
+$marketplaces["cli-hud-local"] = @{
     source = @{ source = "directory"; path = $ScriptDir }
     installLocation = $ScriptDir
     lastUpdated = $now
 }
 $marketplaces | ConvertTo-Json -Depth 10 | Set-Content $MarketplacesFile -Encoding UTF8
-Write-Host "Registered marketplace: claude-hud-local"
+Write-Host "Registered marketplace: cli-hud-local"
 
 # 5. Register in installed_plugins.json
 $installed = @{ version = 2; plugins = @{} }
@@ -67,7 +67,7 @@ try {
     $sha = (git -C $ScriptDir rev-parse HEAD 2>$null).Trim()
 } catch {}
 
-$installed.plugins["claude-hud@claude-hud-local"] = @(
+$installed.plugins["cli-hud@cli-hud-local"] = @(
     @{
         scope = "user"
         installPath = $ScriptDir
@@ -78,12 +78,12 @@ $installed.plugins["claude-hud@claude-hud-local"] = @(
     }
 )
 $installed | ConvertTo-Json -Depth 10 | Set-Content $InstalledFile -Encoding UTF8
-Write-Host "Registered plugin: claude-hud@claude-hud-local"
+Write-Host "Registered plugin: cli-hud@cli-hud-local"
 
 # 6. Configure statusline
 bun (Join-Path $ScriptDir "src" "index.ts") enable
 
 Write-Host ""
-Write-Host "claude-hud installed successfully!" -ForegroundColor Green
-Write-Host "  Commands: /claude-hud:enable, /claude-hud:disable, /claude-hud:report"
+Write-Host "cli-hud installed successfully!" -ForegroundColor Green
+Write-Host "  Commands: /cli-hud:enable, /cli-hud:disable, /cli-hud:report"
 Write-Host "  Please restart Claude Code to activate."

@@ -58,7 +58,7 @@ interface CacheFile {
   data: CacheData;
 }
 
-const CACHE_DIR = join(homedir(), ".claude", "claude-hud-cache");
+const CACHE_DIR = join(homedir(), ".claude", "cli-hud-cache");
 
 function getCachePath(transcriptPath: string): string {
   const hash = createHash("sha256").update(resolve(transcriptPath)).digest("hex");

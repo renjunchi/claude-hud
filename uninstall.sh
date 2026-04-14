@@ -6,7 +6,7 @@ CLAUDE_DIR="${HOME}/.claude"
 MARKETPLACES_FILE="${CLAUDE_DIR}/plugins/known_marketplaces.json"
 INSTALLED_FILE="${CLAUDE_DIR}/plugins/installed_plugins.json"
 
-echo "=== claude-hud uninstaller ==="
+echo "=== cli-hud uninstaller ==="
 echo ""
 
 # 1. Remove statusline configuration
@@ -26,13 +26,13 @@ if not os.path.exists(mp_file):
 with open(mp_file) as f:
     data = json.load(f)
 
-data.pop("claude-hud-local", None)
+data.pop("cli-hud-local", None)
 
 with open(mp_file, "w") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
     f.write("\n")
 PYEOF
-  echo "Removed marketplace: claude-hud-local"
+  echo "Removed marketplace: cli-hud-local"
 fi
 
 # 3. Remove from installed_plugins.json
@@ -47,13 +47,13 @@ if not os.path.exists(inst_file):
 with open(inst_file) as f:
     data = json.load(f)
 
-data.get("plugins", {}).pop("claude-hud@claude-hud-local", None)
+data.get("plugins", {}).pop("cli-hud@cli-hud-local", None)
 
 with open(inst_file, "w") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
     f.write("\n")
 PYEOF
-  echo "Removed plugin: claude-hud@claude-hud-local"
+  echo "Removed plugin: cli-hud@cli-hud-local"
 fi
 
 # 4. Remove auto-update hook from user-level settings
@@ -99,5 +99,5 @@ fi
 rm -f "${SCRIPT_DIR}/.update-lock" "${SCRIPT_DIR}/.last-update" "${SCRIPT_DIR}/.update-rollback-sha" "${SCRIPT_DIR}/.last-fetch"
 
 echo ""
-echo "claude-hud uninstalled. Please restart Claude Code."
+echo "cli-hud uninstalled. Please restart Claude Code."
 echo "  To delete files: rm -rf $SCRIPT_DIR"

@@ -165,7 +165,7 @@ export async function aggregateReport(): Promise<ReportData> {
     if (s.lastActivity > p.lastActivity) p.lastActivity = s.lastActivity;
     projectMap.set(s.project, p);
   }
-  // 归一化 skill 名称：将短名（如 "report"）合并到全限定名（如 "claude-hud:report"）
+  // 归一化 skill 名称：将短名（如 "report"）合并到全限定名（如 "cli-hud:report"）
   // 先收集所有全限定名，建立 shortName → qualifiedName 映射
   const allNames = new Set<string>();
   for (const skills of projectSkillMap.values()) {
@@ -337,7 +337,7 @@ async function parseFile(
 
   // Skill tool_use 去重：仅计入没有对应 <command-name> 的调用
   for (const name of dedupedToolUseSkills) {
-    // 跳过已被 <command-name> 覆盖的（精确匹配或后缀匹配，如 "report" 匹配 "claude-hud:report"）
+    // 跳过已被 <command-name> 覆盖的（精确匹配或后缀匹配，如 "report" 匹配 "cli-hud:report"）
     if (commandNameSkills.has(name)) continue;
     let covered = false;
     for (const cmd of commandNameSkills) {

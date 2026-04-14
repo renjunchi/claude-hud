@@ -6,7 +6,7 @@ import { mkdirSync, rmSync, writeFileSync, appendFileSync, readdirSync, unlinkSy
 
 const TMP_DIR = join(import.meta.dir, "..", ".test-tmp");
 const TMP_FILE = join(TMP_DIR, "test-transcript.jsonl");
-const CACHE_DIR = join(homedir(), ".claude", "claude-hud-cache");
+const CACHE_DIR = join(homedir(), ".claude", "cli-hud-cache");
 
 beforeAll(() => {
   mkdirSync(TMP_DIR, { recursive: true });

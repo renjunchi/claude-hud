@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="ssh://git@10.10.2.124:2222/junchi.ren/claude-hud.git"
-TARGET="${HOME}/.claude/plugins/claude-hud"
+REPO="ssh://git@10.10.2.124:2222/junchi.ren/cli-hud.git"
+TARGET="${HOME}/.claude/plugins/cli-hud"
 
-echo "=== claude-hud bootstrap ==="
+echo "=== cli-hud bootstrap ==="
 echo ""
 
 if [ -d "$TARGET/.git" ]; then

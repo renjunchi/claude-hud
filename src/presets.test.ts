@@ -50,7 +50,7 @@ describe("resolvePresetConfig", () => {
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(join(tmpdir(), "hud-test-"));
-    configPath = join(tmpDir, "claude-hud.json");
+    configPath = join(tmpDir, "cli-hud.json");
     delete process.env.CLAUDE_HUD_PRESET;
   });
 

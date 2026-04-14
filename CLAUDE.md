@@ -1,10 +1,10 @@
-# claude-hud 开发指南
+# cli-hud 开发指南
 
 > 本文档为 Claude Code 等 AI Agent 在本项目中工作的最小指南，保持简洁可执行。
 
 ## 核心口径（必须遵守）
 
-- **项目名称**：claude-hud
+- **项目名称**：cli-hud
 - **技术栈**：待补充（初始化时未检测到标准项目类型文件）
 - **术语定义**：统一参考 [项目术语表](./docs/design/glossary.md)（如果有）
 

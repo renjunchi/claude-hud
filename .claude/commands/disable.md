@@ -1,9 +1,9 @@
 ---
-description: Disable claude-hud statusline and restore native display
+description: Disable cli-hud statusline and restore native display
 allowed-tools: Bash, Read, Edit
 ---
 
-Disable claude-hud and restore Claude Code's native statusline.
+Disable cli-hud and restore Claude Code's native statusline.
 
 ## Steps
 
@@ -15,6 +15,6 @@ bun $PROJECT_DIR/src/index.ts disable
 
 2. Tell the user:
 
-> claude-hud disabled. **Please restart Claude Code** to restore the native statusline.
+> cli-hud disabled. **Please restart Claude Code** to restore the native statusline.
 >
-> To re-enable, run `/claude-hud:enable` or `/enable`.
+> To re-enable, run `/cli-hud:enable` or `/enable`.

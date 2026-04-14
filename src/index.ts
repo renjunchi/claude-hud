@@ -44,5 +44,5 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   // Log to stderr so it doesn't interfere with stdout (which Claude Code reads)
-  console.error(`[claude-hud] ${err?.message ?? err}`);
+  console.error(`[cli-hud] ${err?.message ?? err}`);
 });

@@ -1,5 +1,5 @@
 ---
-title: "claude-hud 技术架构"
+title: "cli-hud 技术架构"
 doc_type: design
 version: 2.0.0
 status: active
@@ -10,10 +10,10 @@ authors:
 tags:
   - architecture
   - design
-  - claude-hud
+  - cli-hud
 ---
 
-# claude-hud 技术架构
+# cli-hud 技术架构
 
 ## 1. 数据流
 
@@ -22,7 +22,7 @@ tags:
 ```
 ┌─────────────────────────────────────────┐
 │              Claude Code                │
-│  (每 ~300ms 调用一次 claude-hud)          │
+│  (每 ~300ms 调用一次 cli-hud)          │
 └──────────────┬──────────────────────────┘
                │ stdin: JSON
                ▼
@@ -46,7 +46,7 @@ stdin.ts  transcript.ts  render/index.ts
 ### 2.2 Report（离线，按需生成）
 
 ```
-claude-hud report
+cli-hud report
        │
        ▼
 ┌──────────────────────────┐
@@ -63,7 +63,7 @@ claude-hud report
 │  暗色主题                │
 └──────────┬───────────────┘
            ▼
-~/.claude/claude-hud-report.html → 浏览器打开
+~/.claude/cli-hud-report.html → 浏览器打开
 ```
 
 每次 statusline 调用为独立进程，无持久状态。唯一的"状态"是 transcript 缓存文件。
@@ -87,8 +87,8 @@ src/
     sessions.ts         # 其他活跃会话显示
     colors.ts           # ANSI 颜色工具函数
   cli/
-    setup.ts            # `claude-hud setup` 命令
-    report.ts           # `claude-hud report` 命令
+    setup.ts            # `cli-hud setup` 命令
+    report.ts           # `cli-hud report` 命令
   report/
     aggregate.ts        # 历史数据聚合（按天/按会话/按模型）
     html.ts             # HTML 报告模板生成
@@ -163,7 +163,7 @@ interface PresetConfig {
 
 预设选择优先级：
 1. 环境变量 `CLAUDE_HUD_PRESET=minimal`
-2. 配置文件 `~/.claude/claude-hud.json` → `{ "preset": "essential" }`
+2. 配置文件 `~/.claude/cli-hud.json` → `{ "preset": "essential" }`
 3. 默认值：`full`
 
 ## 5. 显示效果
@@ -199,7 +199,7 @@ Current ▰▰▰▱▱▱▱▱▱▱ 32% ↻2 hr 35 min │ All ▰▰▰▰�
 Transcript JSONL 文件在会话期间持续增长，每次调用都需要解析。采用 mtime + size 的缓存机制：
 
 1. `stat()` transcript 文件获取 `mtimeMs` 和 `size`
-2. 缓存文件路径：`~/.claude/claude-hud-cache/<path-hash>.json`
+2. 缓存文件路径：`~/.claude/cli-hud-cache/<path-hash>.json`
 3. 若缓存存在且 `(mtimeMs, size)` 匹配且包含 `usage` 字段，直接返回缓存数据
 4. 否则用 `Bun.file().text()` + `split('\n')` 全量解析
 5. 写入缓存（写入失败不影响主流程）
@@ -208,38 +208,38 @@ Transcript JSONL 文件在会话期间持续增长，每次调用都需要解析
 
 | 命令 | 说明 |
 |------|------|
-| `claude-hud` | Statusline 模式（stdin → stdout，由 Claude Code 调用） |
-| `claude-hud setup` | 自动配置 Claude Code 的 statusline 设置 |
-| `claude-hud report` | 生成 HTML 用量报告并打开浏览器 |
-| `claude-hud report --no-open` | 仅生成报告不打开 |
+| `cli-hud` | Statusline 模式（stdin → stdout，由 Claude Code 调用） |
+| `cli-hud setup` | 自动配置 Claude Code 的 statusline 设置 |
+| `cli-hud report` | 生成 HTML 用量报告并打开浏览器 |
+| `cli-hud report --no-open` | 仅生成报告不打开 |
 
 ## 8. HTML 报告
 
-`claude-hud report` 扫描 `~/.claude/projects/` 下所有 transcript JSONL，生成自包含 HTML：
+`cli-hud report` 扫描 `~/.claude/projects/` 下所有 transcript JSONL，生成自包含 HTML：
 
 - **概览卡片**：总会话数、总 token、活跃天数
 - **Token 趋势**：每日 input/output 堆叠柱状图（Chart.js）
 - **模型分布**：Opus/Sonnet/Haiku 使用占比饼图
 - **会话列表**：最近 100 个会话详情表
 
-输出路径：`~/.claude/claude-hud-report.html`
+输出路径：`~/.claude/cli-hud-report.html`
 
 ## 9. 构建和分发
 
 ```json
 {
-  "name": "claude-hud",
+  "name": "cli-hud",
   "version": "0.1.0",
   "type": "module",
-  "bin": { "claude-hud": "dist/claude-hud.js" },
+  "bin": { "cli-hud": "dist/cli-hud.js" },
   "scripts": {
-    "build": "bun build src/index.ts --outfile dist/claude-hud.js --target bun --minify",
+    "build": "bun build src/index.ts --outfile dist/cli-hud.js --target bun --minify",
     "test": "bun test"
   }
 }
 ```
 
-产物：`dist/claude-hud.js`（~19KB，minified，17 模块打包）
+产物：`dist/cli-hud.js`（~19KB，minified，17 模块打包）
 
 ## 10. 测试
 

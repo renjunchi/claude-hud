@@ -95,7 +95,7 @@ export interface PresetConfig {
   showNotifications: boolean;
 }
 
-/** User-facing "show" config keys in claude-hud.json */
+/** User-facing "show" config keys in cli-hud.json */
 export interface ShowConfig {
   model?: boolean;
   contextBar?: boolean;
@@ -109,7 +109,7 @@ export interface ShowConfig {
   notifications?: boolean;
 }
 
-/** Raw shape of ~/.claude/claude-hud.json */
+/** Raw shape of ~/.claude/cli-hud.json */
 export interface HudConfigFile {
   preset?: string;
   show?: Record<string, unknown>;

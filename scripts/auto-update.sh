@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# claude-hud 自动更新脚本
+# cli-hud 自动更新脚本
 # 作为用户级 SessionStart hook 运行，每次会话启动时检查并后台更新
 set -euo pipefail
 
-PLUGIN_DIR="${HOME}/.claude/plugins/claude-hud"
+PLUGIN_DIR="${HOME}/.claude/plugins/cli-hud"
 LOCK_FILE="${PLUGIN_DIR}/.update-lock"
 LAST_UPDATE_FILE="${PLUGIN_DIR}/.last-update"
 LAST_FETCH_FILE="${PLUGIN_DIR}/.last-fetch"
@@ -17,13 +17,13 @@ output_json() {
     jq -n --arg ctx "$msg" '{
       "hookSpecificOutput": {
         "hookEventName": "SessionStart",
-        "additionalContext": ("claude-hud auto-update: " + $ctx)
+        "additionalContext": ("cli-hud auto-update: " + $ctx)
       }
     }'
   else
     local escaped
     escaped=$(printf '%s' "$msg" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    echo "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"claude-hud auto-update: ${escaped}\"}}"
+    echo "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"cli-hud auto-update: ${escaped}\"}}"
   fi
 }
 

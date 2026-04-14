@@ -3,7 +3,7 @@ import { homedir } from "os";
 import { aggregateReport } from "../report/aggregate";
 import { generateReportHTML } from "../report/html";
 
-const REPORT_PATH = join(homedir(), ".claude", "claude-hud-report.html");
+const REPORT_PATH = join(homedir(), ".claude", "cli-hud-report.html");
 
 export async function report(args: string[]): Promise<void> {
   const noOpen = args.includes("--no-open");

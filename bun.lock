@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "claude-hud",
+      "name": "cli-hud",
       "devDependencies": {
         "@types/bun": "latest",
         "typescript": "^5.0.0",

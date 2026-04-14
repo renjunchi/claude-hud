@@ -15,14 +15,14 @@ export async function disable(): Promise<void> {
   }
 
   if (!settings.statusLine) {
-    console.log("claude-hud is not configured.");
+    console.log("cli-hud is not configured.");
     return;
   }
 
   delete settings.statusLine;
   await Bun.write(settingsPath, JSON.stringify(settings, null, 2) + "\n");
 
-  console.log("claude-hud disabled. Restart Claude Code to restore native statusline.");
+  console.log("cli-hud disabled. Restart Claude Code to restore native statusline.");
 }
 
 export async function setup(): Promise<void> {
@@ -42,8 +42,8 @@ export async function setup(): Promise<void> {
   // Check if already configured with OUR version
   const existing = settings.statusLine as Record<string, unknown> | undefined;
   const existingCmd = existing?.command ? String(existing.command) : "";
-  if (existingCmd.includes("claude-hud")) {
-    console.log("claude-hud is already configured.");
+  if (existingCmd.includes("cli-hud")) {
+    console.log("cli-hud is already configured.");
     console.log(`  command: ${existingCmd}`);
     return;
   }
@@ -53,7 +53,7 @@ export async function setup(): Promise<void> {
     console.log(`  old: ${existingCmd.slice(0, 80)}...`);
   }
 
-  // Determine command — use the script path for local dev, or "claude-hud" for global install
+  // Determine command — use the script path for local dev, or "cli-hud" for global install
   const command = resolveCommand();
 
   // Write settings
@@ -78,5 +78,5 @@ function resolveCommand(): string {
   }
 
   // Otherwise assume global install
-  return "claude-hud";
+  return "cli-hud";
 }

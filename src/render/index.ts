@@ -11,7 +11,7 @@ async function safe<T>(fn: () => T | Promise<T>): Promise<T | null> {
   try {
     return await fn();
   } catch (err) {
-    console.error(`[claude-hud] render error: ${err instanceof Error ? err.message : err}`);
+    console.error(`[cli-hud] render error: ${err instanceof Error ? err.message : err}`);
     return null;
   }
 }

@@ -22,12 +22,12 @@ tags:
 
 ### 1.1 背景
 
-claude-hud 当前仅支持 3 个硬编码预设（`full` / `essential` / `minimal`），每个预设是 8 个布尔开关的固定组合。用户无法自定义显示哪些状态栏元素——例如只想看 model + context + rateLimits，但不需要 sessions 和 tokenUsage，就没有任何预设能满足。
+cli-hud 当前仅支持 3 个硬编码预设（`full` / `essential` / `minimal`），每个预设是 8 个布尔开关的固定组合。用户无法自定义显示哪些状态栏元素——例如只想看 model + context + rateLimits，但不需要 sessions 和 tokenUsage，就没有任何预设能满足。
 
 **现状约束：**
 
 - `PresetConfig` 接口已定义 8 个布尔字段（`showModel`, `showContextBar`, `showProject`, `showRateLimits`, `showTools`, `showAgents`, `showTokenUsage`, `showSessions`）
-- 配置文件 `~/.claude/claude-hud.json` 已存在，当前仅支持 `{ "preset": "full" | "essential" | "minimal" }`
+- 配置文件 `~/.claude/cli-hud.json` 已存在，当前仅支持 `{ "preset": "full" | "essential" | "minimal" }`
 - 渲染层已是模块化设计，每行独立渲染、按 preset 开关条件显示
 
 ### 1.2 目标
@@ -38,7 +38,7 @@ claude-hud 当前仅支持 3 个硬编码预设（`full` / `essential` / `minima
 
 #### 在范围内
 
-- 支持在 `claude-hud.json` 中自定义元素开关组合
+- 支持在 `cli-hud.json` 中自定义元素开关组合
 - 保持 `full` / `essential` / `minimal` 三个内置预设向后兼容
 - 支持基于内置预设的部分覆盖（如：基于 `full`，仅关闭 `sessions`）
 
@@ -69,7 +69,7 @@ claude-hud 当前仅支持 3 个硬编码预设（`full` / `essential` / `minima
 
 **验收标准：**
 
-- [ ] 用户可在 `~/.claude/claude-hud.json` 中通过 `show` 字段自定义元素开关
+- [ ] 用户可在 `~/.claude/cli-hud.json` 中通过 `show` 字段自定义元素开关
 - [ ] 未设置 `show` 字段时，行为与现有逻辑完全一致（向后兼容）
 - [ ] 所有 8 个现有元素均可独立开关
 
@@ -93,7 +93,7 @@ claude-hud 当前仅支持 3 个硬编码预设（`full` / `essential` / `minima
 
 | ID | 功能名称 | 描述 | 优先级 | 关联用户故事 |
 |----|---------|------|--------|-------------|
-| F-012 | 自定义元素开关 | 在 claude-hud.json 中通过 `show` 字段自定义各元素的显示/隐藏 | P0 | US-007 |
+| F-012 | 自定义元素开关 | 在 cli-hud.json 中通过 `show` 字段自定义各元素的显示/隐藏 | P0 | US-007 |
 | F-013 | 预设继承覆盖 | 支持基于内置预设部分覆盖，`show` 字段与 `preset` 字段合并 | P0 | US-008 |
 | F-014 | 配置校验 | 对无效的 `show` 字段键名给出警告（stderr），不中断渲染 | P1 | US-007 |
 

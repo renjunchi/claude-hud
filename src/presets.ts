@@ -80,7 +80,7 @@ export async function resolvePresetConfig(
   let showOverrides: Record<string, unknown> | undefined;
 
   try {
-    const path = configPath ?? join(homedir(), ".claude", "claude-hud.json");
+    const path = configPath ?? join(homedir(), ".claude", "cli-hud.json");
     const file = Bun.file(path);
     if (await file.exists()) {
       const config = await file.json();
@@ -132,7 +132,7 @@ export async function resolvePresetConfig(
           base[mapped] = value;
         }
       } else {
-        console.error(`[claude-hud] Unknown show key: "${key}"`);
+        console.error(`[cli-hud] Unknown show key: "${key}"`);
       }
     }
   }

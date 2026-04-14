@@ -6,7 +6,7 @@ CLAUDE_DIR="${HOME}/.claude"
 MARKETPLACES_FILE="${CLAUDE_DIR}/plugins/known_marketplaces.json"
 INSTALLED_FILE="${CLAUDE_DIR}/plugins/installed_plugins.json"
 
-echo "=== claude-hud installer ==="
+echo "=== cli-hud installer ==="
 echo ""
 
 # 1. Check bun
@@ -28,7 +28,7 @@ VER=$(python3 -c "import json; print(json.load(open('$SCRIPT_DIR/.claude-plugin/
 SHA=$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || echo "unknown")
 
 # 5. Copy plugin to cache directory (mirroring how Claude Code manages plugins)
-CACHE_DIR="${CLAUDE_DIR}/plugins/cache/claude-hud-local/claude-hud/${VER}"
+CACHE_DIR="${CLAUDE_DIR}/plugins/cache/cli-hud-local/cli-hud/${VER}"
 rm -rf "$CACHE_DIR"
 mkdir -p "$CACHE_DIR"
 # Copy plugin files (exclude .git, node_modules, docs, tests)
@@ -42,7 +42,7 @@ bun install --frozen-lockfile 2>/dev/null || bun install
 # 6. Ensure plugins directory exists
 mkdir -p "${CLAUDE_DIR}/plugins"
 
-# 7. Register in known_marketplaces.json (and remove conflicting "claude-hud" marketplace if present)
+# 7. Register in known_marketplaces.json (and remove conflicting "cli-hud" marketplace if present)
 python3 - "$SCRIPT_DIR" "$MARKETPLACES_FILE" <<'PYEOF'
 import json, sys, os, shutil
 from datetime import datetime, timezone
@@ -54,15 +54,15 @@ if os.path.exists(mp_file):
     with open(mp_file) as f:
         data = json.load(f)
 
-# Remove conflicting third-party "claude-hud" marketplace (e.g. jarrodwatts/claude-hud)
-if "claude-hud" in data and data["claude-hud"].get("source", {}).get("source") != "directory":
-    loc = data["claude-hud"].get("installLocation", "")
+# Remove conflicting third-party "cli-hud" marketplace (e.g. jarrodwatts/cli-hud)
+if "cli-hud" in data and data["cli-hud"].get("source", {}).get("source") != "directory":
+    loc = data["cli-hud"].get("installLocation", "")
     if loc and os.path.isdir(loc):
         shutil.rmtree(loc, ignore_errors=True)
-    del data["claude-hud"]
-    print("Removed conflicting claude-hud marketplace")
+    del data["cli-hud"]
+    print("Removed conflicting cli-hud marketplace")
 
-data["claude-hud-local"] = {
+data["cli-hud-local"] = {
     "source": {"source": "directory", "path": install_path},
     "installLocation": install_path,
     "lastUpdated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
@@ -72,7 +72,7 @@ with open(mp_file, "w") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
     f.write("\n")
 PYEOF
-echo "Registered marketplace: claude-hud-local"
+echo "Registered marketplace: cli-hud-local"
 
 # 8. Register in installed_plugins.json (point to cache dir)
 python3 - "$CACHE_DIR" "$VER" "$SHA" "$INSTALLED_FILE" <<'PYEOF'
@@ -87,7 +87,7 @@ if os.path.exists(inst_file):
         data = json.load(f)
 
 now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-data["plugins"]["claude-hud@claude-hud-local"] = [{
+data["plugins"]["cli-hud@cli-hud-local"] = [{
     "scope": "user",
     "installPath": cache_dir,
     "version": ver,
@@ -100,17 +100,17 @@ with open(inst_file, "w") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
     f.write("\n")
 PYEOF
-echo "Registered plugin: claude-hud@claude-hud-local"
+echo "Registered plugin: cli-hud@cli-hud-local"
 
 # 9. Clean old version cache directories
-for old_dir in "$CLAUDE_DIR/plugins/cache/claude-hud-local/claude-hud/"*/; do
+for old_dir in "$CLAUDE_DIR/plugins/cache/cli-hud-local/cli-hud/"*/; do
   if [ -d "$old_dir" ] && [ "$old_dir" != "$CACHE_DIR/" ]; then
     rm -rf "$old_dir"
   fi
 done
 
 # 10. Enable plugin (plugins are disabled by default after manual registration)
-claude plugin enable claude-hud@claude-hud-local 2>/dev/null || true
+claude plugin enable cli-hud@cli-hud-local 2>/dev/null || true
 
 # 11. Configure statusline (use cache dir)
 bun "$CACHE_DIR/src/index.ts" enable
@@ -155,8 +155,8 @@ PYEOF
 echo "Registered auto-update hook"
 
 echo ""
-echo "claude-hud installed successfully!"
+echo "cli-hud installed successfully!"
 echo "  Plugin path: $CACHE_DIR"
-echo "  Commands: /claude-hud:enable, /claude-hud:disable, /claude-hud:report, /claude-hud:update"
+echo "  Commands: /cli-hud:enable, /cli-hud:disable, /cli-hud:report, /cli-hud:update"
 echo "  Note: Statusline and report changes take effect immediately."
 echo "  Restart Claude Code only if commands or hooks were updated."
