@@ -31,11 +31,11 @@ export function getContextPercent(stdin: StdinData): number {
   const size = cw.context_window_size;
   if (!usage || !size || size === 0) return 0;
 
+  // input_tokens 已包含 cache_read_input_tokens，不重复计入
   const totalTokens =
     (usage.input_tokens ?? 0) +
     (usage.output_tokens ?? 0) +
-    (usage.cache_creation_input_tokens ?? 0) +
-    (usage.cache_read_input_tokens ?? 0);
+    (usage.cache_creation_input_tokens ?? 0);
 
   return Math.min(100, Math.round((totalTokens / size) * 100));
 }

@@ -3,8 +3,8 @@ import { renderSessionLine, renderRateLimitsLine } from "./context-bar";
 import { renderToolsLine } from "./tools";
 import { renderAgentsLine } from "./agents";
 import { renderTokenUsageLine } from "./token-usage";
-import { renderSessionsLine } from "./sessions";
-import { scanActiveSessions } from "../sessions";
+import { renderSessionsLine, renderNotificationsLine } from "./sessions";
+import { scanActiveSessions, scanSessionNotifications, extractSessionId } from "../sessions";
 
 /** Safely execute a render function, return null on error (log to stderr) */
 async function safe<T>(fn: () => T | Promise<T>): Promise<T | null> {
@@ -37,12 +37,28 @@ export async function render(ctx: RenderContext): Promise<string> {
     if (usageLine) lines.push(usageLine);
   }
 
-  // Line 4: other active sessions
-  if (preset.showSessions) {
+  // Line 4: other active sessions + notifications
+  if (preset.showSessions || preset.showNotifications) {
     const sessions = await safe(() => scanActiveSessions(ctx.stdin.transcript_path));
     if (sessions) {
-      const sessionsLine = renderSessionsLine(sessions);
-      if (sessionsLine) lines.push(sessionsLine);
+      if (preset.showSessions) {
+        const sessionsLine = renderSessionsLine(sessions);
+        if (sessionsLine) lines.push(sessionsLine);
+      }
+
+      // 跨会话通知
+      if (preset.showNotifications && sessions.length > 0) {
+        const currentSessionId = ctx.stdin.transcript_path
+          ? extractSessionId(ctx.stdin.transcript_path)
+          : "";
+        const notifications = await safe(() =>
+          scanSessionNotifications(sessions, currentSessionId),
+        );
+        if (notifications) {
+          const notifLine = renderNotificationsLine(notifications);
+          if (notifLine) lines.push(notifLine);
+        }
+      }
     }
   }
 

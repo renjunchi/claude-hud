@@ -1,6 +1,7 @@
 import type { SessionInfo } from "../sessions";
-import { formatTimeAgo } from "../sessions";
-import { color, cyan, gray, dim } from "./colors";
+import type { SessionNotification } from "../types";
+import { formatTimeAgo, humanizeDetail } from "../sessions";
+import { color, cyan, gray, dim, yellow, red, green } from "./colors";
 
 const MAX_DISPLAY = 3;
 
@@ -29,4 +30,29 @@ export function renderSessionsLine(sessions: SessionInfo[]): string | null {
 
   const count = color(`+${sessions.length} session${sessions.length > 1 ? "s" : ""}`, cyan);
   return `${count}${color(":", dim)} ${color(details, gray)}`;
+}
+
+/** 通知状态对应的图标和颜色 */
+const NOTIFICATION_STYLE: Record<string, { icon: string; colorFn: string; label: string }> = {
+  waiting_permission: { icon: "⚠", colorFn: yellow, label: "等待确认" },
+  error: { icon: "✗", colorFn: red, label: "出错" },
+  turn_complete: { icon: "✓", colorFn: green, label: "已完成" },
+};
+
+/** 渲染跨会话通知行 */
+export function renderNotificationsLine(notifications: SessionNotification[]): string | null {
+  if (notifications.length === 0) return null;
+
+  const parts = notifications.map((n) => {
+    const style = NOTIFICATION_STYLE[n.state];
+    if (!style) return null;
+
+    const project = n.project;
+    const friendly = humanizeDetail(n.detail);
+    const detail = friendly ? `(${friendly})` : "";
+    return color(`${style.icon} ${project}:${style.label}${detail}`, style.colorFn);
+  }).filter(Boolean);
+
+  if (parts.length === 0) return null;
+  return parts.join(color(" │ ", gray));
 }

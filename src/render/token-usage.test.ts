@@ -48,27 +48,39 @@ describe("calcOutputSpeed", () => {
     expect(calcOutputSpeed(makeTranscript())).toBeNull();
   });
 
-  test("returns null when only one timestamp (same first and last)", () => {
+  test("returns null when no prevAssistantTime", () => {
     const t = makeTranscript({
       firstAssistantTime: "2026-04-07T12:00:00Z",
       lastAssistantTime: "2026-04-07T12:00:00Z",
+      lastOutputTokens: 100,
     });
     expect(calcOutputSpeed(t)).toBeNull();
   });
 
-  test("calculates correct speed", () => {
+  test("calculates speed from last message", () => {
     const t = makeTranscript({
       usage: makeUsage({ outputTokens: 6000 }),
-      firstAssistantTime: "2026-04-07T12:00:00Z",
+      prevAssistantTime: "2026-04-07T12:00:00Z",
       lastAssistantTime: "2026-04-07T12:01:00Z", // 60 seconds
+      lastOutputTokens: 6000,
     });
     expect(calcOutputSpeed(t)).toBe(100); // 6000 / 60
   });
 
   test("returns null for sub-second duration", () => {
     const t = makeTranscript({
-      firstAssistantTime: "2026-04-07T12:00:00.000Z",
+      prevAssistantTime: "2026-04-07T12:00:00.000Z",
       lastAssistantTime: "2026-04-07T12:00:00.500Z",
+      lastOutputTokens: 100,
+    });
+    expect(calcOutputSpeed(t)).toBeNull();
+  });
+
+  test("returns null for duration over 10 minutes (idle gap)", () => {
+    const t = makeTranscript({
+      prevAssistantTime: "2026-04-07T12:00:00Z",
+      lastAssistantTime: "2026-04-07T12:15:00Z",
+      lastOutputTokens: 1000,
     });
     expect(calcOutputSpeed(t)).toBeNull();
   });
@@ -113,8 +125,9 @@ describe("renderTokenUsageLine", () => {
   test("shows speed when transcript has timestamps", () => {
     const transcript = makeTranscript({
       usage: makeUsage({ outputTokens: 6000 }),
-      firstAssistantTime: "2026-04-07T12:00:00Z",
+      prevAssistantTime: "2026-04-07T12:00:00Z",
       lastAssistantTime: "2026-04-07T12:01:00Z",
+      lastOutputTokens: 6000,
     });
     const line = stripAnsi(renderTokenUsageLine(transcript.usage, transcript)!);
     expect(line).toContain("⚡100 tok/s");

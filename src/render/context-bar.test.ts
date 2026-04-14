@@ -70,8 +70,9 @@ describe("renderSessionLine", () => {
       transcript: {
         tools: [], agents: [], skills: new Set(),
         usage: { inputTokens: 1000, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 6000, model: "test" },
-        firstAssistantTime: "2025-01-01T00:00:00Z",
+        prevAssistantTime: "2025-01-01T00:00:00Z",
         lastAssistantTime: "2025-01-01T00:01:00Z",
+        lastOutputTokens: 6000,
       },
     });
     const line = stripAnsi(await renderSessionLine(ctx));

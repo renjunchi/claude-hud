@@ -14,17 +14,18 @@ export function formatTokenCount(n: number): string {
   return String(n);
 }
 
-/** Calculate average output tok/s from timestamps */
+/** 计算最近一条 assistant 消息的输出速度 tok/s */
 export function calcOutputSpeed(transcript: TranscriptData): number | null {
-  const { firstAssistantTime, lastAssistantTime } = transcript;
-  if (!firstAssistantTime || !lastAssistantTime) return null;
+  const { prevAssistantTime, lastAssistantTime, lastOutputTokens } = transcript;
+  if (!prevAssistantTime || !lastAssistantTime || !lastOutputTokens) return null;
 
-  const first = new Date(firstAssistantTime).getTime();
+  const prev = new Date(prevAssistantTime).getTime();
   const last = new Date(lastAssistantTime).getTime();
-  const durationSec = (last - first) / 1000;
-  if (durationSec < 1) return null;
+  const durationSec = (last - prev) / 1000;
+  // 时间差需在合理范围内（1s ~ 10min），避免跨空闲期的虚假速度
+  if (durationSec < 1 || durationSec > 600) return null;
 
-  return transcript.usage.outputTokens / durationSec;
+  return lastOutputTokens / durationSec;
 }
 
 /** Format speed: "42 tok/s", "1.2K tok/s" */

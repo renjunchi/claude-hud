@@ -1,7 +1,7 @@
 import { join, resolve } from "path";
 import { homedir } from "os";
 import { createHash } from "crypto";
-import { mkdirSync } from "fs";
+import { mkdirSync, renameSync } from "fs";
 import type { TranscriptData, ToolEntry, AgentEntry, TokenUsage } from "./types";
 
 interface TranscriptLine {
@@ -45,11 +45,15 @@ interface CacheData {
   usage: TokenUsage;
   firstAssistantTime?: string;
   lastAssistantTime?: string;
+  lastOutputTokens?: number;
+  prevAssistantTime?: string;
 }
 
 interface CacheFile {
   transcriptPath: string;
-  mtimeMs: number;
+  /** 已解析到的文件字节偏移（增量解析用） */
+  parsedBytes: number;
+  /** 上次写入缓存时的文件大小 */
   size: number;
   data: CacheData;
 }
@@ -65,85 +69,125 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
   const empty: TranscriptData = { tools: [], agents: [], skills: new Set(), usage: emptyUsage() };
   if (!transcriptPath) return empty;
 
-  // Check file state
+  // 检查文件状态
   const file = Bun.file(transcriptPath);
-  let stat: { mtimeMs: number; size: number };
+  let fileSize: number;
   try {
     const s = await file.stat();
-    stat = { mtimeMs: s.mtimeMs, size: s.size };
+    fileSize = s.size;
   } catch {
     return empty;
   }
 
-  // Try cache
+  // 尝试读取缓存
   const cachePath = getCachePath(transcriptPath);
+  let cached: CacheFile | null = null;
   try {
     const cacheFile = Bun.file(cachePath);
     if (await cacheFile.exists()) {
-      const cached: CacheFile = await cacheFile.json();
+      const raw: CacheFile = await cacheFile.json();
       if (
-        cached.transcriptPath === resolve(transcriptPath) &&
-        cached.mtimeMs === stat.mtimeMs &&
-        cached.size === stat.size &&
-        cached.data.usage // cache compat: re-parse if old format
+        raw.transcriptPath === resolve(transcriptPath) &&
+        raw.data?.usage && // 缓存格式兼容检查
+        raw.parsedBytes != null
       ) {
-        return {
-          ...cached.data,
-          skills: new Set(cached.data.skills ?? []),
-        };
+        cached = raw;
       }
     }
   } catch {
-    // Cache miss, parse fresh
+    // 缓存损坏，全量解析
   }
 
-  // Parse JSONL
+  // 判断是否可增量解析：文件只增长（append-only）则只需读取新增部分
+  const canIncremental = cached && cached.parsedBytes <= fileSize && cached.parsedBytes > 0;
+
+  // 构建初始状态（从缓存恢复或全新开始）
   const toolMap = new Map<string, ToolEntry>();
   const agentMap = new Map<string, AgentEntry>();
   const skillSet = new Set<string>();
-  const usage = emptyUsage();
+  let usage: TokenUsage;
   let firstAssistantTime: string | undefined;
   let lastAssistantTime: string | undefined;
+  let prevAssistantTime: string | undefined;
+  let lastOutputTokens: number | undefined;
 
+  if (canIncremental && cached) {
+    // 从缓存恢复已解析状态
+    for (const t of cached.data.tools) toolMap.set(t.id, { ...t });
+    for (const a of cached.data.agents) agentMap.set(a.id, { ...a });
+    for (const s of cached.data.skills ?? []) skillSet.add(s);
+    usage = { ...cached.data.usage };
+    firstAssistantTime = cached.data.firstAssistantTime;
+    lastAssistantTime = cached.data.lastAssistantTime;
+    prevAssistantTime = cached.data.prevAssistantTime;
+    lastOutputTokens = cached.data.lastOutputTokens;
+  } else {
+    usage = emptyUsage();
+  }
+
+  // 确定需要读取的字节范围
+  const readOffset = canIncremental && cached ? cached.parsedBytes : 0;
+
+  // 完全命中：文件未增长
+  if (readOffset >= fileSize) {
+    return {
+      ...cached!.data,
+      skills: new Set(cached!.data.skills ?? []),
+    };
+  }
+
+  // 读取新增部分（增量）或全部（全量）
+  let newText: string;
   try {
-    const text = await file.text();
-    const lines = text.split("\n");
-
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const entry: TranscriptLine = JSON.parse(line);
-        processEntry(entry, toolMap, agentMap, skillSet);
-
-        // Accumulate token usage from assistant entries
-        if (entry.type === "assistant" && entry.message?.usage) {
-          const u = entry.message.usage;
-          const input = u.input_tokens ?? 0;
-          const cacheCreation = u.cache_creation_input_tokens ?? 0;
-          const cacheRead = u.cache_read_input_tokens ?? 0;
-          const output = u.output_tokens ?? 0;
-
-          usage.inputTokens += input;
-          usage.cacheCreationTokens += cacheCreation;
-          usage.cacheReadTokens += cacheRead;
-          usage.outputTokens += output;
-
-          if (entry.message.model) {
-            usage.model = entry.message.model;
-          }
-
-          // Track first/last assistant timestamps
-          if (entry.timestamp) {
-            if (!firstAssistantTime) firstAssistantTime = entry.timestamp;
-            lastAssistantTime = entry.timestamp;
-          }
-        }
-      } catch {
-        // Skip malformed lines
-      }
+    if (readOffset > 0) {
+      // 增量：只读取新增字节
+      const slice = file.slice(readOffset, fileSize);
+      newText = await slice.text();
+    } else {
+      newText = await file.text();
     }
   } catch {
-    return empty;
+    return canIncremental && cached
+      ? { ...cached.data, skills: new Set(cached.data.skills ?? []) }
+      : empty;
+  }
+
+  // 解析新行
+  const lines = newText.split("\n");
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const entry: TranscriptLine = JSON.parse(line);
+      processEntry(entry, toolMap, agentMap, skillSet);
+
+      // 累计 token 用量
+      if (entry.type === "assistant" && entry.message?.usage) {
+        const u = entry.message.usage;
+        const input = u.input_tokens ?? 0;
+        const cacheCreation = u.cache_creation_input_tokens ?? 0;
+        const cacheRead = u.cache_read_input_tokens ?? 0;
+        const output = u.output_tokens ?? 0;
+
+        usage.inputTokens += input;
+        usage.cacheCreationTokens += cacheCreation;
+        usage.cacheReadTokens += cacheRead;
+        usage.outputTokens += output;
+
+        if (entry.message.model) {
+          usage.model = entry.message.model;
+        }
+
+        // 追踪 assistant 时间戳和速度数据
+        if (entry.timestamp) {
+          if (!firstAssistantTime) firstAssistantTime = entry.timestamp;
+          prevAssistantTime = lastAssistantTime;
+          lastAssistantTime = entry.timestamp;
+          lastOutputTokens = output;
+        }
+      }
+    } catch {
+      // 跳过格式错误的行
+    }
   }
 
   const result: TranscriptData = {
@@ -153,20 +197,24 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
     usage,
     firstAssistantTime,
     lastAssistantTime,
+    lastOutputTokens,
+    prevAssistantTime,
   };
 
-  // Write cache (non-fatal)
+  // 写入缓存（原子写，非致命）
   try {
     mkdirSync(CACHE_DIR, { recursive: true });
     const payload: CacheFile = {
       transcriptPath: resolve(transcriptPath),
-      mtimeMs: stat.mtimeMs,
-      size: stat.size,
+      parsedBytes: fileSize,
+      size: fileSize,
       data: { ...result, skills: Array.from(result.skills) },
     };
-    await Bun.write(cachePath, JSON.stringify(payload));
+    const tmpPath = `${cachePath}.${process.pid}.tmp`;
+    await Bun.write(tmpPath, JSON.stringify(payload));
+    renameSync(tmpPath, cachePath);
   } catch {
-    // ignore
+    // 忽略
   }
 
   return result;

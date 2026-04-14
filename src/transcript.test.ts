@@ -1,13 +1,26 @@
-import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import { describe, test, expect, beforeAll, beforeEach, afterAll } from "bun:test";
 import { parseTranscript } from "./transcript";
 import { join } from "path";
-import { mkdirSync, rmSync, writeFileSync, appendFileSync } from "fs";
+import { homedir } from "os";
+import { mkdirSync, rmSync, writeFileSync, appendFileSync, readdirSync, unlinkSync } from "fs";
 
 const TMP_DIR = join(import.meta.dir, "..", ".test-tmp");
 const TMP_FILE = join(TMP_DIR, "test-transcript.jsonl");
+const CACHE_DIR = join(homedir(), ".claude", "claude-hud-cache");
 
 beforeAll(() => {
   mkdirSync(TMP_DIR, { recursive: true });
+});
+
+// 每个测试前清除增量解析缓存，避免测试间污染
+beforeEach(() => {
+  try {
+    for (const f of readdirSync(CACHE_DIR)) {
+      if (f.endsWith(".json")) unlinkSync(join(CACHE_DIR, f));
+    }
+  } catch {
+    // 缓存目录可能不存在
+  }
 });
 
 afterAll(() => {

@@ -1,6 +1,16 @@
 import type { ReportData } from "./aggregate";
 import { formatTokenCount } from "../render/token-usage";
 
+/** 转义 HTML 特殊字符，防止 XSS */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const CHARTJS_CDN = "https://cdn.jsdelivr.net/npm/chart.js@4";
 let chartJsInline: string | null = null;
 
@@ -36,11 +46,11 @@ export async function generateReportHTML(data: ReportData): Promise<string> {
   const chartJs = await getChartJs();
   const projectRows = data.projects.map((p) => {
     const skillsHtml = p.topSkills.length > 0
-      ? p.topSkills.map(s => `<span class="skill-tag">${s}</span>`).join(" ")
+      ? p.topSkills.map(s => `<span class="skill-tag">${escapeHtml(s)}</span>`).join(" ")
       : "-";
     return `
     <tr>
-      <td>${p.project}</td>
+      <td>${escapeHtml(p.project)}</td>
       <td>${p.sessions}</td>
       <td>${formatTokenCount(p.inputTokens)}</td>
       <td>${formatTokenCount(p.outputTokens)}</td>
@@ -55,7 +65,7 @@ export async function generateReportHTML(data: ReportData): Promise<string> {
     return `
     <tr>
       <td>${i + 1}</td>
-      <td>${s.name}</td>
+      <td>${escapeHtml(s.name)}</td>
       <td class="skill-count">${s.count}</td>
       <td><div class="skill-bar" style="width:${barWidth}%"></div></td>
     </tr>`;
@@ -76,9 +86,9 @@ export async function generateReportHTML(data: ReportData): Promise<string> {
       : "-";
     return `
     <tr>
-      <td>${s.project}</td>
+      <td>${escapeHtml(s.project)}</td>
       <td>${formatDate(s.lastActivity)}</td>
-      <td>${s.model.replace("claude-", "")}</td>
+      <td>${escapeHtml(s.model.replace("claude-", ""))}</td>
       <td>${formatTokenCount(s.inputTokens)}</td>
       <td>${formatTokenCount(s.outputTokens)}</td>
       <td>${durationStr}</td>

@@ -39,18 +39,19 @@ describe("getContextPercent", () => {
     expect(getContextPercent(stdin)).toBe(25);
   });
 
-  test("includes cache tokens in fallback", () => {
+  test("includes cache tokens in fallback (cache_read already in input_tokens)", () => {
     const stdin: StdinData = {
       context_window: {
         context_window_size: 1000,
         current_usage: {
-          input_tokens: 100,
+          input_tokens: 100, // 已包含 cache_read_input_tokens
           cache_creation_input_tokens: 100,
           cache_read_input_tokens: 100,
         },
       },
     };
-    expect(getContextPercent(stdin)).toBe(30);
+    // input_tokens(100) + cache_creation(100) = 200, 200/1000 = 20%
+    expect(getContextPercent(stdin)).toBe(20);
   });
 
   test("caps at 100%", () => {

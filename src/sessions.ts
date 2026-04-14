@@ -1,17 +1,20 @@
 import { join } from "path";
 import { homedir } from "os";
-import { mkdirSync } from "fs";
+import { mkdirSync, renameSync } from "fs";
+import type { SessionState, SessionNotification } from "./types";
 
 export interface SessionInfo {
   sessionId: string;
   project: string;
   lastActivity: number; // timestamp ms
   name?: string; // session name from session file
+  cwd?: string; // session working directory
 }
 
 interface SessionFileInfo {
   pid: number;
   name?: string;
+  cwd?: string;
 }
 
 const HISTORY_PATH = join(homedir(), ".claude", "history.jsonl");
@@ -42,11 +45,13 @@ async function readCache(): Promise<SessionsCacheFile | null> {
   return null;
 }
 
-/** 写入磁盘缓存（非致命） */
+/** 写入磁盘缓存（原子写：先写临时文件再 rename，防止并发损坏） */
 async function writeCache(cache: SessionsCacheFile): Promise<void> {
   try {
     mkdirSync(CACHE_DIR, { recursive: true });
-    await Bun.write(SESSIONS_CACHE_PATH, JSON.stringify(cache));
+    const tmpPath = `${SESSIONS_CACHE_PATH}.${process.pid}.tmp`;
+    await Bun.write(tmpPath, JSON.stringify(cache));
+    renameSync(tmpPath, SESSIONS_CACHE_PATH);
   } catch {
     // 忽略
   }
@@ -80,7 +85,7 @@ export async function buildSessionPidMap(
       try {
         const content = await Bun.file(join(SESSIONS_DIR, file)).json();
         if (content.sessionId && typeof content.pid === "number") {
-          map.set(content.sessionId, { pid: content.pid, name: content.name });
+          map.set(content.sessionId, { pid: content.pid, name: content.name, cwd: content.cwd });
         }
       } catch {
         // skip malformed files
@@ -197,7 +202,7 @@ export async function scanActiveSessions(currentTranscriptPath?: string): Promis
     }
     if (!alive) continue;
 
-    results.push({ sessionId, ...data, name: info.name });
+    results.push({ sessionId, ...data, name: info.name, cwd: info.cwd });
   }
 
   // 更新磁盘缓存（仅在有变化时写入）
@@ -225,4 +230,359 @@ export async function scanActiveSessions(currentTranscriptPath?: string): Promis
 
   // Sort by most recent first
   return results.sort((a, b) => b.lastActivity - a.lastActivity);
+}
+
+// ===== 跨会话通知 =====
+
+const NOTIFICATION_CACHE_PATH = join(CACHE_DIR, "notifications.json");
+const SCAN_THROTTLE_MS = 2_000; // 每 2 秒扫描一次，减少 I/O
+const PROJECTS_DIR = join(homedir(), ".claude", "projects");
+const TAIL_BYTES = 4096; // 只读尾部 4KB
+
+// 通知 TTL（毫秒）
+const NOTIFICATION_TTL: Record<SessionState, number> = {
+  waiting_permission: 5 * 60 * 1000,
+  error: 3 * 60 * 1000,
+  turn_complete: 2 * 60 * 1000,
+  working: 0, // 不通知
+};
+
+interface NotificationCacheEntry {
+  state: SessionState;
+  detectedAt: number;
+  lastFileSize: number;
+  detail?: string;
+  /** 系统通知发送时间戳（用于多窗口去重，防止重复弹窗） */
+  notifiedAt?: number;
+}
+
+interface NotificationCacheFile {
+  sessions: Record<string, NotificationCacheEntry>;
+  lastScanAt: number;
+}
+
+/** 工具名 → 人话映射 */
+const TOOL_FRIENDLY_NAME: Record<string, string> = {
+  ExitPlanMode: "审批计划",
+  Bash: "执行命令",
+  Write: "写入文件",
+  Edit: "编辑文件",
+  AskUserQuestion: "回答提问",
+};
+
+/** 将工具名 detail 翻译为人话 */
+export function humanizeDetail(detail?: string): string | undefined {
+  if (!detail || detail === "") return undefined;
+  // detail 可能是 "Bash, Write" 这种逗号分隔
+  const names = detail.split(", ");
+  const mapped = names.map(n => TOOL_FRIENDLY_NAME[n] ?? n);
+  return mapped.join(", ");
+}
+
+/** 通知文案 */
+const NOTIFICATION_TEXT: Record<string, { title: string; body: (project: string, detail?: string) => string }> = {
+  waiting_permission: {
+    title: "⚠ 等待确认",
+    body: (project, detail) => {
+      const friendly = humanizeDetail(detail);
+      return `${project} 正在等待${friendly ? `：${friendly}` : "权限确认"}`;
+    },
+  },
+  error: {
+    title: "✗ 执行出错",
+    body: (project, detail) => `${project} 遇到错误${detail ? `：${detail}` : ""}`,
+  },
+  turn_complete: {
+    title: "✓ 任务完成",
+    body: (project) => `${project} 已完成当前轮次`,
+  },
+};
+
+/** 转义 AppleScript 字符串中的特殊字符 */
+function escapeAppleScript(str: string): string {
+  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+/** 发送系统通知 + 终端铃声 */
+function sendSystemNotification(state: SessionState, project: string, detail?: string): void {
+  const template = NOTIFICATION_TEXT[state];
+  if (!template) return;
+
+  const title = escapeAppleScript(template.title);
+  const body = escapeAppleScript(template.body(project, detail));
+
+  // macOS 系统通知
+  if (process.platform === "darwin") {
+    try {
+      Bun.spawn([
+        "osascript", "-e",
+        `display notification "${body}" with title "Claude Code" subtitle "${title}"`,
+      ]);
+    } catch {
+      // 忽略
+    }
+  }
+
+  // 终端铃声（BEL），写到 stderr 因为 stdout 被 Claude Code 读取
+  process.stderr.write("\x07");
+}
+
+/** 从 cwd 构建 transcript 路径 */
+export function resolveTranscriptPath(cwd: string, sessionId: string): string {
+  // /Users/renjunchi/app → -Users-renjunchi-app
+  const encoded = cwd.replace(/\//g, "-");
+  return join(PROJECTS_DIR, encoded, `${sessionId}.jsonl`);
+}
+
+interface TailEntry {
+  type?: string;
+  subtype?: string;
+  durationMs?: number;
+  message?: {
+    stop_reason?: string;
+    content?: Array<{
+      type?: string;
+      name?: string;
+      is_error?: boolean;
+      tool_use_id?: string;
+    }>;
+  };
+}
+
+/** 长任务阈值：轮次执行超过此时间才触发 turn_complete 系统通知 */
+const LONG_TASK_THRESHOLD_MS = 30_000;
+
+/** 读取 transcript 尾部并检测状态 */
+export async function detectSessionState(transcriptPath: string): Promise<{ state: SessionState; detail?: string; durationMs?: number } | null> {
+  try {
+    const file = Bun.file(transcriptPath);
+    const stat = await file.stat();
+    if (stat.size === 0) return null;
+
+    // 只读尾部
+    const start = Math.max(0, stat.size - TAIL_BYTES);
+    const slice = file.slice(start, stat.size);
+    const text = await slice.text();
+
+    // 解析行（第一行可能被截断，跳过）
+    const lines = text.split("\n");
+    const entries: TailEntry[] = [];
+    for (let i = start > 0 ? 1 : 0; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      try {
+        entries.push(JSON.parse(lines[i]));
+      } catch {
+        // skip
+      }
+    }
+
+    if (entries.length === 0) return null;
+
+    // 从后向前分析状态
+    const last = entries[entries.length - 1];
+
+    // turn_complete: 最后是 system/turn_duration
+    if (last.type === "system" && last.subtype === "turn_duration") {
+      return { state: "turn_complete", durationMs: last.durationMs };
+    }
+
+    // 查找最后一条 assistant 消息
+    let lastAssistantIdx = -1;
+    for (let i = entries.length - 1; i >= 0; i--) {
+      if (entries[i].type === "assistant" && entries[i].message?.stop_reason) {
+        lastAssistantIdx = i;
+        break;
+      }
+    }
+
+    if (lastAssistantIdx < 0) return null;
+    const lastAssistant = entries[lastAssistantIdx];
+
+    // 检查最后 assistant 之后是否有 tool_result（error）
+    for (let i = lastAssistantIdx + 1; i < entries.length; i++) {
+      const e = entries[i];
+      if (e.type === "user" && Array.isArray(e.message?.content)) {
+        for (const block of e.message!.content!) {
+          if (block.is_error) {
+            return { state: "error", detail: block.name };
+          }
+        }
+      }
+    }
+
+    if (lastAssistant.message?.stop_reason === "tool_use") {
+      // 检查后续是否有 user tool_result 跟进
+      let hasToolResult = false;
+      for (let i = lastAssistantIdx + 1; i < entries.length; i++) {
+        if (entries[i].type === "user") {
+          hasToolResult = true;
+          break;
+        }
+      }
+
+      if (!hasToolResult) {
+        // 提取等待确认的工具名
+        const toolNames = (lastAssistant.message?.content ?? [])
+          .filter(b => b.type === "tool_use" && b.name)
+          .map(b => b.name!)
+          .filter(n => n !== "TodoWrite" && n !== "TaskCreate" && n !== "TaskUpdate");
+        const detail = toolNames.length > 0 ? toolNames.join(", ") : undefined;
+        return { state: "waiting_permission", detail };
+      }
+
+      return { state: "working" };
+    }
+
+    if (lastAssistant.message?.stop_reason === "end_turn") {
+      return { state: "turn_complete" };
+    }
+
+    return { state: "working" };
+  } catch {
+    return null;
+  }
+}
+
+/** 扫描所有活跃会话的通知 */
+export async function scanSessionNotifications(
+  sessions: SessionInfo[],
+  currentSessionId: string,
+): Promise<SessionNotification[]> {
+  if (sessions.length === 0) return [];
+
+  const now = Date.now();
+
+  // 读取通知缓存
+  let cache: NotificationCacheFile = { sessions: {}, lastScanAt: 0 };
+  try {
+    const file = Bun.file(NOTIFICATION_CACHE_PATH);
+    if (await file.exists()) {
+      cache = await file.json();
+    }
+  } catch {
+    // 缓存损坏
+  }
+
+  // 节流：2 秒内不重复扫描
+  if (now - cache.lastScanAt < SCAN_THROTTLE_MS) {
+    return buildNotifications(cache, sessions, now);
+  }
+
+  let cacheChanged = false;
+
+  for (const session of sessions) {
+    if (session.sessionId === currentSessionId) continue;
+    if (!session.cwd) continue;
+
+    const transcriptPath = resolveTranscriptPath(session.cwd, session.sessionId);
+
+    // stat 检查文件是否变化
+    let fileSize: number;
+    try {
+      const stat = await Bun.file(transcriptPath).stat();
+      fileSize = stat.size;
+    } catch {
+      continue;
+    }
+
+    const cached = cache.sessions[session.sessionId];
+    if (cached && cached.lastFileSize === fileSize) {
+      continue; // 文件未变化，跳过
+    }
+
+    // 检测状态
+    const result = await detectSessionState(transcriptPath);
+    if (!result) continue;
+
+    const prev = cached?.state;
+    const isNewState = prev !== result.state;
+
+    const detectedAt = isNewState ? now : (cached?.detectedAt ?? now);
+    const alreadyNotified = cached?.notifiedAt != null && cached.notifiedAt >= detectedAt;
+    // 多窗口去重：其他进程在 5s 内已通知过
+    const recentlyNotified = cached?.notifiedAt != null && (now - cached.notifiedAt < 5_000);
+
+    // 判断是否应发送系统通知
+    let shouldNotify = false;
+    if (result.state !== "working" && !alreadyNotified && !recentlyNotified) {
+      if (result.state === "waiting_permission") {
+        // 延迟确认 3s，避免自动允许工具的短暂间隙误报
+        shouldNotify = (now - detectedAt) >= 3_000;
+      } else if (result.state === "turn_complete") {
+        // 只通知长任务（>30s），短问答不弹窗
+        shouldNotify = isNewState && (result.durationMs ?? 0) >= LONG_TASK_THRESHOLD_MS;
+      } else {
+        shouldNotify = isNewState;
+      }
+    }
+
+    cache.sessions[session.sessionId] = {
+      state: result.state,
+      detectedAt: isNewState ? now : (cached?.detectedAt ?? now),
+      lastFileSize: fileSize,
+      detail: result.detail,
+      notifiedAt: shouldNotify ? now : (isNewState ? undefined : cached?.notifiedAt),
+    };
+
+    if (shouldNotify) {
+      sendSystemNotification(result.state, session.project, result.detail);
+    }
+
+    cacheChanged = true;
+  }
+
+  cache.lastScanAt = now;
+
+  // 清理已消失的会话
+  const activeIds = new Set(sessions.map(s => s.sessionId));
+  for (const id of Object.keys(cache.sessions)) {
+    if (!activeIds.has(id)) {
+      delete cache.sessions[id];
+      cacheChanged = true;
+    }
+  }
+
+  // 写入缓存
+  if (cacheChanged) {
+    try {
+      mkdirSync(CACHE_DIR, { recursive: true });
+      const tmpPath = `${NOTIFICATION_CACHE_PATH}.${process.pid}.tmp`;
+      await Bun.write(tmpPath, JSON.stringify(cache));
+      renameSync(tmpPath, NOTIFICATION_CACHE_PATH);
+    } catch {
+      // 忽略
+    }
+  }
+
+  return buildNotifications(cache, sessions, now);
+}
+
+/** 从缓存构建通知列表（TTL 过滤） */
+function buildNotifications(
+  cache: NotificationCacheFile,
+  sessions: SessionInfo[],
+  now: number,
+): SessionNotification[] {
+  const sessionMap = new Map(sessions.map(s => [s.sessionId, s]));
+  const notifications: SessionNotification[] = [];
+
+  for (const [sessionId, entry] of Object.entries(cache.sessions)) {
+    const ttl = NOTIFICATION_TTL[entry.state];
+    if (ttl === 0) continue; // working 不通知
+    if (now - entry.detectedAt > ttl) continue; // 过期
+
+    const session = sessionMap.get(sessionId);
+    if (!session) continue;
+
+    notifications.push({
+      sessionId,
+      project: session.project,
+      sessionName: session.name,
+      state: entry.state,
+      detectedAt: entry.detectedAt,
+      detail: entry.detail,
+    });
+  }
+
+  return notifications;
 }

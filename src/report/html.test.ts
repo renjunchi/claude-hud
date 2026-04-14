@@ -14,7 +14,7 @@ function makeData(): ReportData {
     projects: [
       { project: "my-app", sessions: 1, inputTokens: 10000, outputTokens: 2000, cacheCreationTokens: 1000, cacheReadTokens: 4000, lastActivity: "2026-04-07T11:00:00Z", topSkills: [] },
     ],
-    totals: { tokens: 18000, sessions: 1, activeDays: 2, cacheCreationTokens: 1500, cacheReadTokens: 6000 },
+    totals: { tokens: 18000, inputTokens: 15000, sessions: 1, activeDays: 2, cacheCreationTokens: 1500, cacheReadTokens: 6000 },
     modelBreakdown: { Opus: { tokens: 18000, inputTokens: 15000, outputTokens: 3000, cacheReadTokens: 6000, cacheCreationTokens: 1500 } },
     skillRanking: [],
     generatedAt: "2026-04-07T12:00:00Z",
@@ -59,7 +59,7 @@ describe("generateReportHTML", () => {
     expect(html).toContain("时长");
     expect(html).toContain("1h");
     expect(html).toContain("Cache 命中");
-    expect(html).toContain("40%"); // 4000/10000
+    expect(html).toContain("27%"); // 4000/(10000+1000+4000)=27%
   });
 
   test("embeds DATA json", async () => {

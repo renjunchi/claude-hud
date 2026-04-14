@@ -60,6 +60,24 @@ export interface TranscriptData {
   firstAssistantTime?: string;
   /** ISO timestamp of the last assistant message */
   lastAssistantTime?: string;
+  /** 最近一条 assistant 消息的输出 token 数 */
+  lastOutputTokens?: number;
+  /** 最近一条 assistant 消息的前一条 assistant 时间戳 */
+  prevAssistantTime?: string;
+}
+
+/** 其他会话的运行状态 */
+export type SessionState = "working" | "waiting_permission" | "turn_complete" | "error";
+
+/** 跨会话通知 */
+export interface SessionNotification {
+  sessionId: string;
+  project: string;
+  sessionName?: string;
+  state: SessionState;
+  /** 首次检测到此状态的时间戳(ms) */
+  detectedAt: number;
+  detail?: string;
 }
 
 export type Preset = "full" | "essential" | "minimal";
@@ -74,6 +92,7 @@ export interface PresetConfig {
   showTokenUsage: boolean;
   showSessions: boolean;
   showSpeed: boolean;
+  showNotifications: boolean;
 }
 
 /** User-facing "show" config keys in claude-hud.json */
@@ -87,6 +106,7 @@ export interface ShowConfig {
   tokenUsage?: boolean;
   sessions?: boolean;
   speed?: boolean;
+  notifications?: boolean;
 }
 
 /** Raw shape of ~/.claude/claude-hud.json */
