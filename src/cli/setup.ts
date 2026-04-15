@@ -68,6 +68,8 @@ export async function setup(): Promise<void> {
   console.log(`  command: ${command}`);
   console.log("");
   console.log("Restart Claude Code to see the HUD.");
+  console.log("");
+  console.log("Tip: 运行 \"cli-hud watch\" 启用后台通知（空闲时也能收到其他会话的状态提醒）");
 }
 
 function resolveCommand(): string {

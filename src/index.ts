@@ -4,6 +4,7 @@ import { resolvePresetConfig } from "./presets";
 import { render } from "./render/index";
 import { setup, disable } from "./cli/setup";
 import { report } from "./cli/report";
+import { ensureWatcher } from "./watcher";
 import type { RenderContext } from "./types";
 
 async function main(): Promise<void> {
@@ -21,6 +22,19 @@ async function main(): Promise<void> {
     await report(process.argv.slice(3));
     return;
   }
+  if (arg === "watch") {
+    if (process.argv[3] === "--daemon") {
+      const { runDaemon } = await import("./watcher");
+      await runDaemon();
+    } else {
+      const { watch } = await import("./cli/watch");
+      await watch(process.argv.slice(3));
+    }
+    return;
+  }
+
+  // 自动拉起后台 watcher（不阻塞渲染）
+  ensureWatcher();
 
   // Read stdin JSON from Claude Code
   const stdin = await readStdin();

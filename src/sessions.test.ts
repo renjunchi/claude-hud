@@ -110,6 +110,30 @@ describe("detectSessionState", () => {
     ]);
     const result = await detectSessionState(TMP_FILE);
     expect(result?.state).toBe("turn_complete");
+    expect(result?.durationMs).toBe(5000);
+  });
+
+  test("detects turn_complete with durationMs when entries follow turn_duration", async () => {
+    writeLines([
+      { type: "assistant", message: { stop_reason: "end_turn", content: [{ type: "text", text: "Done" }] } },
+      { type: "system", subtype: "turn_duration", durationMs: 45000 },
+      { type: "system", subtype: "stop_hook_summary" },
+    ]);
+    const result = await detectSessionState(TMP_FILE);
+    expect(result?.state).toBe("turn_complete");
+    expect(result?.durationMs).toBe(45000);
+  });
+
+  test("detects turn_complete with durationMs when attachments follow turn_duration", async () => {
+    writeLines([
+      { type: "assistant", message: { stop_reason: "end_turn", content: [] } },
+      { type: "system", subtype: "turn_duration", durationMs: 60000 },
+      { type: "attachment" },
+      { type: "attachment" },
+    ]);
+    const result = await detectSessionState(TMP_FILE);
+    expect(result?.state).toBe("turn_complete");
+    expect(result?.durationMs).toBe(60000);
   });
 
   test("detects waiting_permission when tool_use has no following user", async () => {
@@ -145,5 +169,67 @@ describe("detectSessionState", () => {
     ]);
     const result = await detectSessionState(TMP_FILE);
     expect(result?.state).toBe("error");
+  });
+
+  // === 渐进式尾读测试 ===
+
+  test("progressive tail read: parses correctly when last entry exceeds 4KB", async () => {
+    // 构造一条 >4KB 的 assistant 消息，后跟 turn_duration
+    const longText = "x".repeat(6000);
+    writeLines([
+      { type: "assistant", message: { stop_reason: "end_turn", content: [{ type: "text", text: longText }] } },
+      { type: "system", subtype: "turn_duration", durationMs: 12000 },
+    ]);
+    const result = await detectSessionState(TMP_FILE);
+    expect(result?.state).toBe("turn_complete");
+    expect(result?.durationMs).toBe(12000);
+  });
+
+  test("progressive tail read: handles single line >8KB with entries after it", async () => {
+    // 单行 >8KB，初始 4KB 和 8KB 都截断，需要 16KB 才能解析
+    const hugeText = "y".repeat(10000);
+    writeLines([
+      { type: "assistant", message: { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "ExitPlanMode" }, { type: "text", text: hugeText }] } },
+    ]);
+    const result = await detectSessionState(TMP_FILE);
+    expect(result?.state).toBe("waiting_permission");
+    expect(result?.detail).toBe("ExitPlanMode");
+  });
+
+  test("progressive tail read: small file parsed without retry", async () => {
+    // 小文件（<4KB），不需要重试
+    writeLines([
+      { type: "assistant", message: { stop_reason: "end_turn", content: [{ type: "text", text: "ok" }] } },
+    ]);
+    const result = await detectSessionState(TMP_FILE);
+    expect(result?.state).toBe("turn_complete");
+  });
+
+  // === 防抖相关测试 ===
+
+  test("filters out TodoWrite and TaskCreate/TaskUpdate from waiting_permission detail", async () => {
+    writeLines([
+      { type: "assistant", message: { stop_reason: "tool_use", content: [
+        { type: "tool_use", id: "t1", name: "TodoWrite" },
+        { type: "tool_use", id: "t2", name: "TaskUpdate" },
+        { type: "tool_use", id: "t3", name: "Bash" },
+      ] } },
+    ]);
+    const result = await detectSessionState(TMP_FILE);
+    expect(result?.state).toBe("waiting_permission");
+    // TodoWrite 和 TaskUpdate 被过滤，只剩 Bash
+    expect(result?.detail).toBe("Bash");
+  });
+
+  test("waiting_permission detail is undefined when all tools are filtered", async () => {
+    writeLines([
+      { type: "assistant", message: { stop_reason: "tool_use", content: [
+        { type: "tool_use", id: "t1", name: "TodoWrite" },
+        { type: "tool_use", id: "t2", name: "TaskCreate" },
+      ] } },
+    ]);
+    const result = await detectSessionState(TMP_FILE);
+    expect(result?.state).toBe("waiting_permission");
+    expect(result?.detail).toBeUndefined();
   });
 });

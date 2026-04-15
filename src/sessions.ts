@@ -237,7 +237,8 @@ export async function scanActiveSessions(currentTranscriptPath?: string): Promis
 const NOTIFICATION_CACHE_PATH = join(CACHE_DIR, "notifications.json");
 const SCAN_THROTTLE_MS = 2_000; // 每 2 秒扫描一次，减少 I/O
 const PROJECTS_DIR = join(homedir(), ".claude", "projects");
-const TAIL_BYTES = 4096; // 只读尾部 4KB
+const INITIAL_TAIL_BYTES = 4096;  // 初始读取 4KB
+const MAX_TAIL_BYTES = 65536;     // 渐进重试最大 64KB
 
 // 通知 TTL（毫秒）
 const NOTIFICATION_TTL: Record<SessionState, number> = {
@@ -359,85 +360,108 @@ export async function detectSessionState(transcriptPath: string): Promise<{ stat
     const stat = await file.stat();
     if (stat.size === 0) return null;
 
-    // 只读尾部
-    const start = Math.max(0, stat.size - TAIL_BYTES);
-    const slice = file.slice(start, stat.size);
-    const text = await slice.text();
+    // 渐进式尾读：初始 4KB，解析失败则翻倍，最大 64KB
+    // ExitPlanMode 等消息包含计划摘要，单行经常超过 4KB
+    let tailBytes = INITIAL_TAIL_BYTES;
 
-    // 解析行（第一行可能被截断，跳过）
-    const lines = text.split("\n");
-    const entries: TailEntry[] = [];
-    for (let i = start > 0 ? 1 : 0; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      try {
-        entries.push(JSON.parse(lines[i]));
-      } catch {
-        // skip
-      }
-    }
+    while (tailBytes <= MAX_TAIL_BYTES) {
+      const start = Math.max(0, stat.size - tailBytes);
+      const slice = file.slice(start, stat.size);
+      const text = await slice.text();
 
-    if (entries.length === 0) return null;
-
-    // 从后向前分析状态
-    const last = entries[entries.length - 1];
-
-    // turn_complete: 最后是 system/turn_duration
-    if (last.type === "system" && last.subtype === "turn_duration") {
-      return { state: "turn_complete", durationMs: last.durationMs };
-    }
-
-    // 查找最后一条 assistant 消息
-    let lastAssistantIdx = -1;
-    for (let i = entries.length - 1; i >= 0; i--) {
-      if (entries[i].type === "assistant" && entries[i].message?.stop_reason) {
-        lastAssistantIdx = i;
-        break;
-      }
-    }
-
-    if (lastAssistantIdx < 0) return null;
-    const lastAssistant = entries[lastAssistantIdx];
-
-    // 检查最后 assistant 之后是否有 tool_result（error）
-    for (let i = lastAssistantIdx + 1; i < entries.length; i++) {
-      const e = entries[i];
-      if (e.type === "user" && Array.isArray(e.message?.content)) {
-        for (const block of e.message!.content!) {
-          if (block.is_error) {
-            return { state: "error", detail: block.name };
-          }
+      // 解析行（第一行可能被截断，跳过）
+      const lines = text.split("\n");
+      const entries: TailEntry[] = [];
+      for (let i = start > 0 ? 1 : 0; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        try {
+          entries.push(JSON.parse(lines[i]));
+        } catch {
+          // skip
         }
       }
-    }
 
-    if (lastAssistant.message?.stop_reason === "tool_use") {
-      // 检查后续是否有 user tool_result 跟进
-      let hasToolResult = false;
-      for (let i = lastAssistantIdx + 1; i < entries.length; i++) {
-        if (entries[i].type === "user") {
-          hasToolResult = true;
+      if (entries.length === 0) {
+        // 已读完整个文件仍无法解析，放弃
+        if (start === 0) return null;
+        // 翻倍重试
+        tailBytes *= 2;
+        continue;
+      }
+
+      // 从后向前分析状态
+      const last = entries[entries.length - 1];
+
+      // turn_complete: 最后是 system/turn_duration
+      if (last.type === "system" && last.subtype === "turn_duration") {
+        return { state: "turn_complete", durationMs: last.durationMs };
+      }
+
+      // 向后搜索 turn_duration 获取 durationMs（尾部可能有 attachment/stop_hook_summary）
+      let durationMs: number | undefined;
+      for (let i = entries.length - 1; i >= 0; i--) {
+        if (entries[i].type === "system" && entries[i].subtype === "turn_duration") {
+          durationMs = entries[i].durationMs;
           break;
         }
       }
 
-      if (!hasToolResult) {
-        // 提取等待确认的工具名
-        const toolNames = (lastAssistant.message?.content ?? [])
-          .filter(b => b.type === "tool_use" && b.name)
-          .map(b => b.name!)
-          .filter(n => n !== "TodoWrite" && n !== "TaskCreate" && n !== "TaskUpdate");
-        const detail = toolNames.length > 0 ? toolNames.join(", ") : undefined;
-        return { state: "waiting_permission", detail };
+      // 查找最后一条 assistant 消息
+      let lastAssistantIdx = -1;
+      for (let i = entries.length - 1; i >= 0; i--) {
+        if (entries[i].type === "assistant" && entries[i].message?.stop_reason) {
+          lastAssistantIdx = i;
+          break;
+        }
+      }
+
+      if (lastAssistantIdx < 0) return null;
+      const lastAssistant = entries[lastAssistantIdx];
+
+      // 检查最后 assistant 之后是否有 tool_result（error）
+      for (let i = lastAssistantIdx + 1; i < entries.length; i++) {
+        const e = entries[i];
+        if (e.type === "user" && Array.isArray(e.message?.content)) {
+          for (const block of e.message!.content!) {
+            if (block.is_error) {
+              return { state: "error", detail: block.name };
+            }
+          }
+        }
+      }
+
+      if (lastAssistant.message?.stop_reason === "tool_use") {
+        // 检查后续是否有 user tool_result 跟进
+        let hasToolResult = false;
+        for (let i = lastAssistantIdx + 1; i < entries.length; i++) {
+          if (entries[i].type === "user") {
+            hasToolResult = true;
+            break;
+          }
+        }
+
+        if (!hasToolResult) {
+          // 提取等待确认的工具名
+          const toolNames = (lastAssistant.message?.content ?? [])
+            .filter(b => b.type === "tool_use" && b.name)
+            .map(b => b.name!)
+            .filter(n => n !== "TodoWrite" && n !== "TaskCreate" && n !== "TaskUpdate");
+          const detail = toolNames.length > 0 ? toolNames.join(", ") : undefined;
+          return { state: "waiting_permission", detail };
+        }
+
+        return { state: "working" };
+      }
+
+      if (lastAssistant.message?.stop_reason === "end_turn") {
+        return { state: "turn_complete", durationMs };
       }
 
       return { state: "working" };
     }
 
-    if (lastAssistant.message?.stop_reason === "end_turn") {
-      return { state: "turn_complete" };
-    }
-
-    return { state: "working" };
+    // tailBytes 超过 MAX_TAIL_BYTES 仍无法解析
+    return null;
   } catch {
     return null;
   }
@@ -446,7 +470,7 @@ export async function detectSessionState(transcriptPath: string): Promise<{ stat
 /** 扫描所有活跃会话的通知 */
 export async function scanSessionNotifications(
   sessions: SessionInfo[],
-  currentSessionId: string,
+  currentSessionId?: string,
 ): Promise<SessionNotification[]> {
   if (sessions.length === 0) return [];
 
@@ -499,8 +523,9 @@ export async function scanSessionNotifications(
 
     const detectedAt = isNewState ? now : (cached?.detectedAt ?? now);
     const alreadyNotified = cached?.notifiedAt != null && cached.notifiedAt >= detectedAt;
-    // 多窗口去重：其他进程在 5s 内已通知过
-    const recentlyNotified = cached?.notifiedAt != null && (now - cached.notifiedAt < 5_000);
+    // 多窗口去重：前台 statusline 和后台 watcher 可能同时扫描，
+    // 窗口设为 2× 轮询间隔（10s）确保不重复弹窗
+    const recentlyNotified = cached?.notifiedAt != null && (now - cached.notifiedAt < 10_000);
 
     // 判断是否应发送系统通知
     let shouldNotify = false;
@@ -518,7 +543,7 @@ export async function scanSessionNotifications(
 
     cache.sessions[session.sessionId] = {
       state: result.state,
-      detectedAt: isNewState ? now : (cached?.detectedAt ?? now),
+      detectedAt,
       lastFileSize: fileSize,
       detail: result.detail,
       notifiedAt: shouldNotify ? now : (isNewState ? undefined : cached?.notifiedAt),
@@ -570,6 +595,8 @@ function buildNotifications(
     const ttl = NOTIFICATION_TTL[entry.state];
     if (ttl === 0) continue; // working 不通知
     if (now - entry.detectedAt > ttl) continue; // 过期
+    // 防抖：waiting_permission 等待 3s 确认，避免自动允许工具的短暂误报
+    if (entry.state === "waiting_permission" && (now - entry.detectedAt) < 3_000) continue;
 
     const session = sessionMap.get(sessionId);
     if (!session) continue;
