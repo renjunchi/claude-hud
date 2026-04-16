@@ -262,6 +262,21 @@ interface NotificationCacheFile {
   lastScanAt: number;
 }
 
+/** 通常需要用户确认的工具（白名单）；不在此列的视为自动允许 */
+const TOOLS_NEED_PERMISSION = new Set([
+  "Bash",
+  "Write",
+  "Edit",
+  "NotebookEdit",
+  "ExitPlanMode",
+  "AskUserQuestion",
+]);
+
+/** 判断工具是否通常需要用户确认 */
+function toolNeedsPermission(name: string): boolean {
+  return TOOLS_NEED_PERMISSION.has(name) || name.startsWith("mcp__");
+}
+
 /** 工具名 → 人话映射 */
 const TOOL_FRIENDLY_NAME: Record<string, string> = {
   ExitPlanMode: "审批计划",
@@ -441,13 +456,16 @@ export async function detectSessionState(transcriptPath: string): Promise<{ stat
         }
 
         if (!hasToolResult) {
-          // 提取等待确认的工具名
+          // 只有需要用户确认的工具才报 waiting_permission
           const toolNames = (lastAssistant.message?.content ?? [])
             .filter(b => b.type === "tool_use" && b.name)
             .map(b => b.name!)
-            .filter(n => n !== "TodoWrite" && n !== "TaskCreate" && n !== "TaskUpdate");
-          const detail = toolNames.length > 0 ? toolNames.join(", ") : undefined;
-          return { state: "waiting_permission", detail };
+            .filter(toolNeedsPermission);
+          if (toolNames.length > 0) {
+            return { state: "waiting_permission", detail: toolNames.join(", ") };
+          }
+          // 全部是自动允许工具 → 仍在工作中
+          return { state: "working" };
         }
 
         return { state: "working" };
