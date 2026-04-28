@@ -1,6 +1,11 @@
 # .agentic-dev.yaml — 项目级 Agentic 开发配置
 # 由 ad-init 生成，项目维护者可按需调整
 
+# runtime 配置 — Agent 运行时行为偏好
+runtime:
+  layout_preference: auto   # auto | codex | claude — 目录布局偏好
+  guide_preference: auto    # auto | agents | claude — 指南格式偏好
+
 # 上下文管理配置
 context:
   claude_md_max_lines: 200
@@ -26,7 +31,7 @@ documents:
 
 # 索引配置
 indexes:
-  dir: ".claude/indexes"
+  dir: ".agentic/indexes"
   files:
     - issue-index.json
     - project-index-overview.json

@@ -10,7 +10,10 @@
       "Bash(echo:*)", "Bash(grep:*)", "Bash(which:*)",
       "Bash(pwd:*)", "Bash(date:*)", "Bash(file:*)",
       "Bash(git rebase --continue:*)",
-      "Bash(npm run:*)", "Bash(npm test:*)", "Bash(npx:*)"
+      "Bash(rm -rf docs/worklist/recent/*)",
+      "Bash(npm:*)", "Bash(npm run:*)", "Bash(npm test:*)", "Bash(npx:*)",
+      "Bash(yarn:*)", "Bash(pnpm:*)",
+      "Bash(bun:*)", "Bash(bun test:*)", "Bash(bun build:*)"
     ],
     "deny": [
       "Bash(rm -rf /)", "Bash(rm -rf /*)", "Bash(rm -rf ~)",

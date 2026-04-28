@@ -1,5 +1,5 @@
 <!-- This file is rendered. Edit .agentic/project-guide.md for shared rules. -->
-<!-- host-target: CLAUDE.md -->
+<!-- host-target: AGENTS.md -->
 <!-- canonical-source: .agentic/project-guide.md -->
 <!-- ad:project-guide:rendered:start -->
 # cli-hud 开发指南

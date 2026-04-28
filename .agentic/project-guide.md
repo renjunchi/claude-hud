@@ -1,7 +1,3 @@
-<!-- This file is rendered. Edit .agentic/project-guide.md for shared rules. -->
-<!-- host-target: CLAUDE.md -->
-<!-- canonical-source: .agentic/project-guide.md -->
-<!-- ad:project-guide:rendered:start -->
 # cli-hud 开发指南
 
 > 本文档为 Claude Code 等 AI Agent 在本项目中工作的最小指南，保持简洁可执行。
@@ -65,10 +61,3 @@
 
 ### v1.0.0 (2026-03-29)
 - 由 ad-init 初始化生成
-<!-- ad:project-guide:rendered:end -->
-
-<!-- Manual retention area: host-specific notes may live here. -->
-<!-- ad:project-guide:manual:start -->
-
-
-<!-- ad:project-guide:manual:end -->

@@ -22,3 +22,4 @@ coverage/
 .claude/*.local.json
 .worktrees/
 docs/worklist/archives/
+docs/worklist/**/.cache/

@@ -1,0 +1,23 @@
+# .agentic/ runtime directory gitignore
+# Strategy: broad ignore + allowlist for version-controlled directories
+# Tracked: config/, scripts/, indexes/ (project-level config and indexes)
+# Ignored: everything else (runtime artifacts, agent-generated content)
+
+# Broad ignore — block everything by default
+*
+
+# Allowlist — this file itself
+!.gitignore
+!ad.local.md
+!project-guide.md
+
+# Allowlist — version-controlled directories
+!config/
+!config/**
+!scripts/
+!scripts/**
+!indexes/
+!indexes/**
+issues/
+batches/
+archives/
