@@ -33,6 +33,8 @@ export interface ToolEntry {
   id: string;
   name: string;
   status: "running" | "completed" | "error";
+  /** 预计算好的输入摘要，已截断 —— 仅 running 工具显示 */
+  summary?: string;
 }
 
 export interface AgentEntry {

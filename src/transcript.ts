@@ -3,6 +3,7 @@ import { homedir } from "os";
 import { createHash } from "crypto";
 import { mkdirSync, renameSync } from "fs";
 import type { TranscriptData, ToolEntry, AgentEntry, TokenUsage } from "./types";
+import { summarizeToolInput } from "./render/tool-summary";
 
 interface TranscriptLine {
   type?: string;
@@ -249,6 +250,7 @@ function processEntry(
           id: block.id,
           name: block.name,
           status: "running",
+          summary: summarizeToolInput(block.name, block.input),
         });
       }
     }

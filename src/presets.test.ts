@@ -18,10 +18,14 @@ describe("PRESETS", () => {
     expect(PRESETS.full.showSessions).toBe(true);
   });
 
-  test("essential preset hides tools and agents", () => {
+  test("essential preset shows tools but hides agents", () => {
     expect(PRESETS.essential.showModel).toBe(true);
-    expect(PRESETS.essential.showTools).toBe(false);
+    expect(PRESETS.essential.showTools).toBe(true);
     expect(PRESETS.essential.showAgents).toBe(false);
+  });
+
+  test("full preset shows tools", () => {
+    expect(PRESETS.full.showTools).toBe(true);
   });
 
   test("minimal preset shows only model and context", () => {

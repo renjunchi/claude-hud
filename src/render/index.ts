@@ -4,7 +4,12 @@ import { renderToolsLine } from "./tools";
 import { renderAgentsLine } from "./agents";
 import { renderTokenUsageLine } from "./token-usage";
 import { renderSessionsLine, renderNotificationsLine } from "./sessions";
-import { scanActiveSessions, scanSessionNotifications, extractSessionId } from "../sessions";
+import {
+  scanActiveSessions,
+  scanSessionNotifications,
+  extractSessionId,
+  type SessionInfo,
+} from "../sessions";
 
 /** Safely execute a render function, return null on error (log to stderr) */
 async function safe<T>(fn: () => T | Promise<T>): Promise<T | null> {
@@ -21,54 +26,48 @@ export async function render(ctx: RenderContext): Promise<string> {
   const preset = ctx.presetConfig;
   const lines: string[] = [];
 
-  // Line 1: always — model + project + context bar + git branch
   const sessionLine = await safe(() => renderSessionLine(ctx));
   if (sessionLine) lines.push(sessionLine);
 
-  // Line 2: rate limits
   if (preset.showRateLimits) {
     const rateLine = await safe(() => renderRateLimitsLine(ctx));
     if (rateLine) lines.push(rateLine);
   }
 
-  // Line 3: token usage
   if (preset.showTokenUsage) {
     const usageLine = await safe(() => renderTokenUsageLine(ctx.transcript.usage, ctx.transcript));
     if (usageLine) lines.push(usageLine);
   }
 
-  // Line 4: other active sessions + notifications
+  // sessions 提到外层：showSessions 与 showNotifications 共用一次扫描
+  let sessions: SessionInfo[] | null = null;
   if (preset.showSessions || preset.showNotifications) {
-    const sessions = await safe(() => scanActiveSessions(ctx.stdin.transcript_path));
-    if (sessions) {
-      if (preset.showSessions) {
-        const sessionsLine = renderSessionsLine(sessions);
-        if (sessionsLine) lines.push(sessionsLine);
-      }
-
-      // 跨会话通知
-      if (preset.showNotifications && sessions.length > 0) {
-        const currentSessionId = ctx.stdin.transcript_path
-          ? extractSessionId(ctx.stdin.transcript_path)
-          : "";
-        const notifications = await safe(() =>
-          scanSessionNotifications(sessions, currentSessionId),
-        );
-        if (notifications) {
-          const notifLine = renderNotificationsLine(notifications);
-          if (notifLine) lines.push(notifLine);
-        }
-      }
+    sessions = await safe(() => scanActiveSessions(ctx.stdin.transcript_path));
+    if (sessions && preset.showSessions) {
+      const sessionsLine = renderSessionsLine(sessions);
+      if (sessionsLine) lines.push(sessionsLine);
     }
   }
 
-  // Line 5: active tools
+  // 当前会话工具活动放在跨会话通知之前，让用户先看到自己的状态
   if (preset.showTools) {
     const toolsLine = await safe(() => renderToolsLine(ctx.transcript.tools));
     if (toolsLine) lines.push(toolsLine);
   }
 
-  // Line 6: agents
+  if (preset.showNotifications && sessions && sessions.length > 0) {
+    const currentSessionId = ctx.stdin.transcript_path
+      ? extractSessionId(ctx.stdin.transcript_path)
+      : "";
+    const notifications = await safe(() =>
+      scanSessionNotifications(sessions, currentSessionId),
+    );
+    if (notifications) {
+      const notifLine = renderNotificationsLine(notifications);
+      if (notifLine) lines.push(notifLine);
+    }
+  }
+
   if (preset.showAgents) {
     const agentsLine = await safe(() => renderAgentsLine(ctx.transcript.agents));
     if (agentsLine) lines.push(agentsLine);

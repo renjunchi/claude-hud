@@ -1,15 +1,23 @@
 import type { ToolEntry } from "../types";
 import { color, green, yellow, red, dim } from "./colors";
 
-const SPINNER = "\u25D0"; // ◐
-const CHECK = "\u2713";   // ✓
-const CROSS = "\u2717";   // ✗
+// Braille 旋转帧；按时间戳取模选帧，让连续快照看起来在转
+export const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+// 步进 ≈ statusline 调用周期（~300ms），让相邻两次渲染恰好相邻一帧
+export const SPINNER_STEP_MS = 250;
+const CHECK = "✓";
+const CROSS = "✗";
+const MULT = "×";
+
+function currentSpinner(): string {
+  const idx = Math.floor(Date.now() / SPINNER_STEP_MS) % SPINNER_FRAMES.length;
+  return SPINNER_FRAMES[idx]!;
+}
 
 /** Render active tools line */
 export function renderToolsLine(tools: ToolEntry[]): string | null {
   if (tools.length === 0) return null;
 
-  // Group completed tools by name, keep running tools separate
   const running: ToolEntry[] = [];
   const completedCounts = new Map<string, number>();
   const errorCounts = new Map<string, number>();
@@ -25,24 +33,25 @@ export function renderToolsLine(tools: ToolEntry[]): string | null {
   }
 
   const parts: string[] = [];
+  const spin = currentSpinner();
 
-  // Running tools first
   for (const tool of running) {
-    parts.push(color(`${SPINNER} ${tool.name}`, yellow));
+    const label = tool.summary
+      ? `${spin} ${tool.name}: ${tool.summary}`
+      : `${spin} ${tool.name}`;
+    parts.push(color(label, yellow));
   }
 
-  // Completed tools (grouped)
   for (const [name, count] of completedCounts) {
-    const suffix = count > 1 ? ` x${count}` : "";
+    const suffix = count > 1 ? ` ${MULT}${count}` : "";
     parts.push(color(`${CHECK} ${name}${suffix}`, green));
   }
 
-  // Error tools (grouped)
   for (const [name, count] of errorCounts) {
-    const suffix = count > 1 ? ` x${count}` : "";
+    const suffix = count > 1 ? ` ${MULT}${count}` : "";
     parts.push(color(`${CROSS} ${name}${suffix}`, red));
   }
 
   if (parts.length === 0) return null;
-  return parts.join(color(" \u2502 ", dim)); // │
+  return parts.join(color(" │ ", dim)); // │
 }

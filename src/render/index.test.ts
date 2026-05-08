@@ -30,7 +30,7 @@ describe("render", () => {
     expect(output).toContain("Current");
   });
 
-  test("essential preset hides tools and agents", async () => {
+  test("essential preset shows tools and hides agents", async () => {
     const ctx = makeCtx({
       presetConfig: PRESETS.essential,
       transcript: {
@@ -42,8 +42,22 @@ describe("render", () => {
     });
     const output = stripAnsi(await render(ctx));
     expect(output).toContain("Opus 4.6");
-    expect(output).not.toContain("Read");
+    expect(output).toContain("Read");
     expect(output).not.toContain("agent done");
+  });
+
+  test("minimal preset hides tools line", async () => {
+    const ctx = makeCtx({
+      presetConfig: PRESETS.minimal,
+      transcript: {
+        tools: [{ id: "1", name: "Read", status: "completed" }],
+        agents: [],
+        skills: new Set(),
+        usage: { inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0, model: "" },
+      },
+    });
+    const output = stripAnsi(await render(ctx));
+    expect(output).not.toContain("Read");
   });
 
   test("minimal preset shows only model", async () => {

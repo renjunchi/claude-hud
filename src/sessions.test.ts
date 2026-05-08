@@ -221,7 +221,8 @@ describe("detectSessionState", () => {
     expect(result?.detail).toBe("Bash");
   });
 
-  test("waiting_permission detail is undefined when all tools are filtered", async () => {
+  test("falls back to working when all pending tools are auto-allowed", async () => {
+    // 白名单机制下，全部为自动允许工具时不再报 waiting_permission，直接视为 working
     writeLines([
       { type: "assistant", message: { stop_reason: "tool_use", content: [
         { type: "tool_use", id: "t1", name: "TodoWrite" },
@@ -229,7 +230,7 @@ describe("detectSessionState", () => {
       ] } },
     ]);
     const result = await detectSessionState(TMP_FILE);
-    expect(result?.state).toBe("waiting_permission");
+    expect(result?.state).toBe("working");
     expect(result?.detail).toBeUndefined();
   });
 });
