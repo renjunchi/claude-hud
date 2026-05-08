@@ -23,7 +23,7 @@
 
 - **Runtime 锁定 Bun**：不要引入 Node.js-only API（如 `fs/promises` 之外的 Node-specific 模块）；测试用 `bun:test` 而非 jest/vitest
 - **性能敏感路径**：`src/index.ts` → `render/` 是 statusline 主路径，Claude Code **每 ~300ms 调用一次**。改动这条路径时避免：阻塞 I/O、重 JSON parse、跨进程 spawn。重活放到 `src/cli/watch.ts` 后台 watcher
-- **构建产物**：`bun build src/index.ts --outfile dist/cli-hud.js --target bun --minify`，目标体积 ~19KB；新增依赖前评估对体积影响
+- **构建产物**：`bun build src/index.ts --outfile dist/cli-hud.js --target bun --minify`，当前体积 ~37KB / 19 模块；新增依赖前评估对体积影响
 - **TypeScript strict**：`tsconfig.json` 已开 `strict: true`，禁止用 `any` 绕过类型；`@types/bun` 提供 Bun 类型
 - **配置文件**：用户配置在 `~/.claude/cli-hud.json`（preset / show 字段），优先级见 `src/presets.ts`
 - **安装路径**：`~/.claude/plugins/cli-hud`（生产）；本仓库为开发源
