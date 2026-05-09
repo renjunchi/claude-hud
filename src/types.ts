@@ -97,26 +97,6 @@ export interface PresetConfig {
   showNotifications: boolean;
 }
 
-/** User-facing "show" config keys in cli-hud.json */
-export interface ShowConfig {
-  model?: boolean;
-  contextBar?: boolean;
-  project?: boolean;
-  rateLimits?: boolean;
-  tools?: boolean;
-  agents?: boolean;
-  tokenUsage?: boolean;
-  sessions?: boolean;
-  speed?: boolean;
-  notifications?: boolean;
-}
-
-/** Raw shape of ~/.claude/cli-hud.json */
-export interface HudConfigFile {
-  preset?: string;
-  show?: Record<string, unknown>;
-}
-
 export interface RenderContext {
   stdin: StdinData;
   transcript: TranscriptData;

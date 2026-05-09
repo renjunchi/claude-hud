@@ -4,7 +4,7 @@ import { color, green, yellow, red, dim } from "./colors";
 // Braille 旋转帧；按时间戳取模选帧，让连续快照看起来在转
 export const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 // 步进 ≈ statusline 调用周期（~300ms），让相邻两次渲染恰好相邻一帧
-export const SPINNER_STEP_MS = 250;
+const SPINNER_STEP_MS = 250;
 const CHECK = "✓";
 const CROSS = "✗";
 const MULT = "×";
