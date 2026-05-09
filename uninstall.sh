@@ -56,7 +56,9 @@ PYEOF
   echo "Removed plugin: cli-hud@cli-hud-local"
 fi
 
-# 4. Remove auto-update hook from user-level settings
+# 4. Remove legacy auto-update hook from user-level settings (migration cleanup)
+#    auto-update.sh was removed in option-C cleanup; this clears stale hooks
+#    left over from earlier installs.
 SETTINGS_FILE="${CLAUDE_DIR}/settings.json"
 if [ -f "$SETTINGS_FILE" ]; then
   python3 - "$SETTINGS_FILE" <<'PYEOF'
@@ -72,7 +74,6 @@ with open(settings_file) as f:
 hooks = data.get("hooks", {})
 session_hooks = hooks.get("SessionStart", [])
 
-# 移除包含 auto-update.sh 的 hook 条目
 new_session_hooks = []
 for entry in session_hooks:
     new_hooks = [h for h in entry.get("hooks", []) if not h.get("command", "").endswith("auto-update.sh")]
@@ -92,11 +93,8 @@ with open(settings_file, "w") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
     f.write("\n")
 PYEOF
-  echo "Removed auto-update hook"
+  echo "Cleaned legacy auto-update hook (if any)"
 fi
-
-# 5. Clean up update marker files
-rm -f "${SCRIPT_DIR}/.update-lock" "${SCRIPT_DIR}/.last-update" "${SCRIPT_DIR}/.update-rollback-sha" "${SCRIPT_DIR}/.last-fetch"
 
 echo ""
 echo "cli-hud uninstalled. Please restart Claude Code."

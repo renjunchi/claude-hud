@@ -115,48 +115,9 @@ claude plugin enable cli-hud@cli-hud-local 2>/dev/null || true
 # 11. Configure statusline (use cache dir)
 bun "$CACHE_DIR/src/index.ts" enable
 
-# 12. Register auto-update SessionStart hook in user-level settings
-python3 - "$SCRIPT_DIR/scripts/auto-update.sh" "${CLAUDE_DIR}/settings.json" <<'PYEOF'
-import json, sys, os
-
-update_script, settings_file = sys.argv[1], sys.argv[2]
-
-data = {}
-if os.path.exists(settings_file):
-    with open(settings_file) as f:
-        data = json.load(f)
-
-hooks = data.setdefault("hooks", {})
-session_hooks = hooks.setdefault("SessionStart", [])
-
-# 检查是否已注册（避免重复）
-hook_command = update_script
-already_registered = False
-for entry in session_hooks:
-    for h in entry.get("hooks", []):
-        if h.get("command", "").endswith("auto-update.sh"):
-            # 更新为最新路径
-            h["command"] = hook_command
-            already_registered = True
-
-if not already_registered:
-    session_hooks.append({
-        "matcher": "",
-        "hooks": [{
-            "type": "command",
-            "command": hook_command
-        }]
-    })
-
-with open(settings_file, "w") as f:
-    json.dump(data, f, indent=2, ensure_ascii=False)
-    f.write("\n")
-PYEOF
-echo "Registered auto-update hook"
-
 echo ""
-echo "cli-hud installed successfully!"
+echo "cli-hud installed successfully (developer mode)!"
 echo "  Plugin path: $CACHE_DIR"
-echo "  Commands: /cli-hud:enable, /cli-hud:disable, /cli-hud:report, /cli-hud:update"
-echo "  Note: Statusline and report changes take effect immediately."
-echo "  Restart Claude Code only if commands or hooks were updated."
+echo "  Marketplace: cli-hud-local (directory source → $SCRIPT_DIR)"
+echo "  Commands: /cli-hud:enable, /cli-hud:disable, /cli-hud:report"
+echo "  Update flow: re-run \`bash $SCRIPT_DIR/install.sh\` after pulling."

@@ -51,6 +51,7 @@
 1. **提交需明确授权**：不自动执行 `git commit`
 2. **推送需二次确认**：不自动执行 `git push`
 3. **破坏性操作需警告**：删除文件前必须确认
+4. **Commit message 不写 `Co-Authored-By: Claude ...` trailer**：本仓库已托管在公开 GitHub，trailer 中的 `noreply@anthropic.com` 会被 GitHub 解析到官方 `@claude` 账号并污染 contributors 列表
 
 ### 危险操作保护
 | 危险命令 | 风险 | 安全替代 |
