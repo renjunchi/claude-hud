@@ -242,7 +242,6 @@ const MAX_TAIL_BYTES = 65536;     // 渐进重试最大 64KB
 
 // 通知 TTL（毫秒）
 const NOTIFICATION_TTL: Record<SessionState, number> = {
-  waiting_permission: 5 * 60 * 1000,
   error: 3 * 60 * 1000,
   turn_complete: 2 * 60 * 1000,
   working: 0, // 不通知
@@ -262,84 +261,8 @@ interface NotificationCacheFile {
   lastScanAt: number;
 }
 
-/** 通常需要用户确认的工具（白名单）；不在此列的视为自动允许 */
-const TOOLS_NEED_PERMISSION = new Set([
-  "Bash",
-  "Write",
-  "Edit",
-  "NotebookEdit",
-  "ExitPlanMode",
-  "AskUserQuestion",
-]);
-
-/** 判断工具是否通常需要用户确认 */
-function toolNeedsPermission(name: string): boolean {
-  return TOOLS_NEED_PERMISSION.has(name) || name.startsWith("mcp__");
-}
-
-/** 工具名 → 人话映射 */
-const TOOL_FRIENDLY_NAME: Record<string, string> = {
-  ExitPlanMode: "审批计划",
-  Bash: "执行命令",
-  Write: "写入文件",
-  Edit: "编辑文件",
-  AskUserQuestion: "回答提问",
-};
-
-/** 将工具名 detail 翻译为人话 */
-export function humanizeDetail(detail?: string): string | undefined {
-  if (!detail || detail === "") return undefined;
-  // detail 可能是 "Bash, Write" 这种逗号分隔
-  const names = detail.split(", ");
-  const mapped = names.map(n => TOOL_FRIENDLY_NAME[n] ?? n);
-  return mapped.join(", ");
-}
-
-/** 通知文案 */
-const NOTIFICATION_TEXT: Record<string, { title: string; body: (project: string, detail?: string) => string }> = {
-  waiting_permission: {
-    title: "⚠ 等待确认",
-    body: (project, detail) => {
-      const friendly = humanizeDetail(detail);
-      return `${project} 正在等待${friendly ? `：${friendly}` : "权限确认"}`;
-    },
-  },
-  error: {
-    title: "✗ 执行出错",
-    body: (project, detail) => `${project} 遇到错误${detail ? `：${detail}` : ""}`,
-  },
-  turn_complete: {
-    title: "✓ 任务完成",
-    body: (project) => `${project} 已完成当前轮次`,
-  },
-};
-
-/** 转义 AppleScript 字符串中的特殊字符 */
-function escapeAppleScript(str: string): string {
-  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
-
-/** 发送系统通知 + 终端铃声 */
-function sendSystemNotification(state: SessionState, project: string, detail?: string): void {
-  const template = NOTIFICATION_TEXT[state];
-  if (!template) return;
-
-  const title = escapeAppleScript(template.title);
-  const body = escapeAppleScript(template.body(project, detail));
-
-  // macOS 系统通知
-  if (process.platform === "darwin") {
-    try {
-      Bun.spawn([
-        "osascript", "-e",
-        `display notification "${body}" with title "Claude Code" subtitle "${title}"`,
-      ]);
-    } catch {
-      // 忽略
-    }
-  }
-
-  // 终端铃声（BEL），写到 stderr 因为 stdout 被 Claude Code 读取
+/** 终端铃声（BEL），写到 stderr 因为 stdout 被 Claude Code 读取 */
+function fireBell(): void {
   process.stderr.write("\x07");
 }
 
@@ -446,28 +369,8 @@ export async function detectSessionState(transcriptPath: string): Promise<{ stat
       }
 
       if (lastAssistant.message?.stop_reason === "tool_use") {
-        // 检查后续是否有 user tool_result 跟进
-        let hasToolResult = false;
-        for (let i = lastAssistantIdx + 1; i < entries.length; i++) {
-          if (entries[i].type === "user") {
-            hasToolResult = true;
-            break;
-          }
-        }
-
-        if (!hasToolResult) {
-          // 只有需要用户确认的工具才报 waiting_permission
-          const toolNames = (lastAssistant.message?.content ?? [])
-            .filter(b => b.type === "tool_use" && b.name)
-            .map(b => b.name!)
-            .filter(toolNeedsPermission);
-          if (toolNames.length > 0) {
-            return { state: "waiting_permission", detail: toolNames.join(", ") };
-          }
-          // 全部是自动允许工具 → 仍在工作中
-          return { state: "working" };
-        }
-
+        // 不再尝试区分"等待用户确认"与"自动允许"，统一视为 working。
+        // 跨会话权限白名单与用户实际 settings.json 必然不一致，会误报。
         return { state: "working" };
       }
 
@@ -545,16 +448,14 @@ export async function scanSessionNotifications(
     // 窗口设为 2× 轮询间隔（10s）确保不重复弹窗
     const recentlyNotified = cached?.notifiedAt != null && (now - cached.notifiedAt < 10_000);
 
-    // 判断是否应发送系统通知
+    // 判断是否应触发铃声
     let shouldNotify = false;
     if (result.state !== "working" && !alreadyNotified && !recentlyNotified) {
-      if (result.state === "waiting_permission") {
-        // 延迟确认 3s，避免自动允许工具的短暂间隙误报
-        shouldNotify = (now - detectedAt) >= 3_000;
-      } else if (result.state === "turn_complete") {
-        // 只通知长任务（>30s），短问答不弹窗
+      if (result.state === "turn_complete") {
+        // 只通知长任务（>30s），短问答不打扰
         shouldNotify = isNewState && (result.durationMs ?? 0) >= LONG_TASK_THRESHOLD_MS;
       } else {
+        // error
         shouldNotify = isNewState;
       }
     }
@@ -567,9 +468,7 @@ export async function scanSessionNotifications(
       notifiedAt: shouldNotify ? now : (isNewState ? undefined : cached?.notifiedAt),
     };
 
-    if (shouldNotify) {
-      sendSystemNotification(result.state, session.project, result.detail);
-    }
+    if (shouldNotify) fireBell();
 
     cacheChanged = true;
   }
@@ -613,8 +512,6 @@ function buildNotifications(
     const ttl = NOTIFICATION_TTL[entry.state];
     if (ttl === 0) continue; // working 不通知
     if (now - entry.detectedAt > ttl) continue; // 过期
-    // 防抖：waiting_permission 等待 3s 确认，避免自动允许工具的短暂误报
-    if (entry.state === "waiting_permission" && (now - entry.detectedAt) < 3_000) continue;
 
     const session = sessionMap.get(sessionId);
     if (!session) continue;

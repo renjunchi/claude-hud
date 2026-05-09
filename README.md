@@ -15,7 +15,7 @@ Current ▰▰▰▱▱▱▱▱▱▱ 32% ↻2 hr 35 min │ All ▰▰▰▰�
 - **Rate Limits** — 5 小时和 7 天用量，倒计时/重置时间
 - **Git 分支** — 从 `.git/HEAD` 读取当前分支
 - **活跃工具** — 运行中工具显示 Braille 旋转帧 + 输入摘要，已完成工具按次数聚合
-- **多会话监控** — 检测本机其他活跃的 Claude Code 会话，可选系统通知
+- **多会话监控** — 检测本机其他活跃的 Claude Code 会话，可选状态提示行（长任务完成 / 出错）+ 终端铃声
 - **Token 用量 / 输出速度** — 累计 input/output tokens，可选实时输出速度
 - **用量报告** — 生成带图表的 HTML 报告
 - **显示预设** — `full` / `essential` / `minimal` + 完全自定义
@@ -96,7 +96,7 @@ bun run src/index.ts disable
 | `cli-hud enable` / `cli-hud setup` | 启用 statusline，写入 `~/.claude/settings.json` |
 | `cli-hud disable` | 关闭 statusline，恢复 Claude Code 原生状态栏 |
 | `cli-hud report [--no-open]` | 生成 HTML 用量报告，默认自动打开浏览器 |
-| `cli-hud watch start\|stop\|status` | 管理后台 watcher（多会话扫描与系统通知） |
+| `cli-hud watch start\|stop\|status` | 管理后台 watcher（跨会话扫描与铃声） |
 
 ## 配置
 
@@ -139,7 +139,7 @@ CLAUDE_HUD_PRESET=minimal
 | `tokenUsage` | Token 用量 |  | ✓ |  |
 | `sessions` | 其他会话 | ✓ | ✓ |  |
 | `speed` | 输出速度 | ✓ | ✓ |  |
-| `notifications` | 系统通知 | ✓ | ✓ |  |
+| `notifications` | 跨会话状态行（✓ 长任务完成 / ✗ 出错）+ 铃声 | ✓ | ✓ |  |
 
 > Git 分支不受 `show` 控制，只要识别到 `.git/HEAD` 就显示。`agents` 默认所有预设关闭，需要时显式 `"show": { "agents": true }` 启用。
 

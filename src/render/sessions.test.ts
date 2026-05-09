@@ -48,23 +48,6 @@ describe("renderNotificationsLine", () => {
     expect(renderNotificationsLine([])).toBeNull();
   });
 
-  test("renders waiting_permission with yellow icon and friendly name", () => {
-    const notifs: SessionNotification[] = [
-      { sessionId: "a", project: "my-app", state: "waiting_permission", detectedAt: Date.now(), detail: "Bash" },
-    ];
-    const line = stripAnsi(renderNotificationsLine(notifs)!);
-    expect(line).toContain("⚠");
-    expect(line).toContain("my-app:等待确认(执行命令)");
-  });
-
-  test("renders ExitPlanMode as friendly name", () => {
-    const notifs: SessionNotification[] = [
-      { sessionId: "a", project: "my-app", state: "waiting_permission", detectedAt: Date.now(), detail: "ExitPlanMode" },
-    ];
-    const line = stripAnsi(renderNotificationsLine(notifs)!);
-    expect(line).toContain("my-app:等待确认(审批计划)");
-  });
-
   test("renders turn_complete with green icon", () => {
     const notifs: SessionNotification[] = [
       { sessionId: "a", project: "api-svc", state: "turn_complete", detectedAt: Date.now() },
@@ -85,7 +68,7 @@ describe("renderNotificationsLine", () => {
 
   test("renders multiple notifications separated by │", () => {
     const notifs: SessionNotification[] = [
-      { sessionId: "a", project: "app1", state: "waiting_permission", detectedAt: Date.now() },
+      { sessionId: "a", project: "app1", state: "error", detectedAt: Date.now() },
       { sessionId: "b", project: "app2", state: "turn_complete", detectedAt: Date.now() },
     ];
     const line = stripAnsi(renderNotificationsLine(notifs)!);

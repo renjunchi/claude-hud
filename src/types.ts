@@ -69,7 +69,7 @@ export interface TranscriptData {
 }
 
 /** 其他会话的运行状态 */
-export type SessionState = "working" | "waiting_permission" | "turn_complete" | "error";
+export type SessionState = "working" | "turn_complete" | "error";
 
 /** 跨会话通知 */
 export interface SessionNotification {

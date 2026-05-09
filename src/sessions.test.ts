@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test";
-import { extractProjectName, extractSessionId, formatTimeAgo, isProcessAlive, resolveTranscriptPath, detectSessionState, humanizeDetail } from "./sessions";
+import { extractProjectName, extractSessionId, formatTimeAgo, isProcessAlive, resolveTranscriptPath, detectSessionState } from "./sessions";
 import { join } from "path";
 import { homedir } from "os";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
@@ -60,26 +60,6 @@ describe("isProcessAlive", () => {
   });
 });
 
-describe("humanizeDetail", () => {
-  test("maps known tool names", () => {
-    expect(humanizeDetail("ExitPlanMode")).toBe("审批计划");
-    expect(humanizeDetail("Bash")).toBe("执行命令");
-  });
-
-  test("passes through unknown names", () => {
-    expect(humanizeDetail("CustomTool")).toBe("CustomTool");
-  });
-
-  test("handles comma-separated list", () => {
-    expect(humanizeDetail("Bash, Write")).toBe("执行命令, 写入文件");
-  });
-
-  test("returns undefined for empty/undefined", () => {
-    expect(humanizeDetail(undefined)).toBeUndefined();
-    expect(humanizeDetail("")).toBeUndefined();
-  });
-});
-
 describe("resolveTranscriptPath", () => {
   test("encodes cwd path correctly", () => {
     const result = resolveTranscriptPath("/Users/foo/my-app", "abc-123");
@@ -136,13 +116,13 @@ describe("detectSessionState", () => {
     expect(result?.durationMs).toBe(60000);
   });
 
-  test("detects waiting_permission when tool_use has no following user", async () => {
+  test("returns working when tool_use has no following user (whitelist removed)", async () => {
     writeLines([
       { type: "assistant", message: { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "Bash" }] } },
     ]);
     const result = await detectSessionState(TMP_FILE);
-    expect(result?.state).toBe("waiting_permission");
-    expect(result?.detail).toBe("Bash");
+    // 跨会话权限白名单已移除，未跟进的 tool_use 一律视为 working
+    expect(result?.state).toBe("working");
   });
 
   test("detects working when tool_use has following user response", async () => {
@@ -186,14 +166,15 @@ describe("detectSessionState", () => {
   });
 
   test("progressive tail read: handles single line >8KB with entries after it", async () => {
-    // 单行 >8KB，初始 4KB 和 8KB 都截断，需要 16KB 才能解析
+    // 单行 >8KB，初始 4KB 和 8KB 都截断，需要 16KB 才能解析；本例验证渐进尾读能力
     const hugeText = "y".repeat(10000);
     writeLines([
-      { type: "assistant", message: { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "ExitPlanMode" }, { type: "text", text: hugeText }] } },
+      { type: "assistant", message: { stop_reason: "end_turn", content: [{ type: "text", text: hugeText }] } },
+      { type: "system", subtype: "turn_duration", durationMs: 8000 },
     ]);
     const result = await detectSessionState(TMP_FILE);
-    expect(result?.state).toBe("waiting_permission");
-    expect(result?.detail).toBe("ExitPlanMode");
+    expect(result?.state).toBe("turn_complete");
+    expect(result?.durationMs).toBe(8000);
   });
 
   test("progressive tail read: small file parsed without retry", async () => {
@@ -205,32 +186,4 @@ describe("detectSessionState", () => {
     expect(result?.state).toBe("turn_complete");
   });
 
-  // === 防抖相关测试 ===
-
-  test("filters out TodoWrite and TaskCreate/TaskUpdate from waiting_permission detail", async () => {
-    writeLines([
-      { type: "assistant", message: { stop_reason: "tool_use", content: [
-        { type: "tool_use", id: "t1", name: "TodoWrite" },
-        { type: "tool_use", id: "t2", name: "TaskUpdate" },
-        { type: "tool_use", id: "t3", name: "Bash" },
-      ] } },
-    ]);
-    const result = await detectSessionState(TMP_FILE);
-    expect(result?.state).toBe("waiting_permission");
-    // TodoWrite 和 TaskUpdate 被过滤，只剩 Bash
-    expect(result?.detail).toBe("Bash");
-  });
-
-  test("falls back to working when all pending tools are auto-allowed", async () => {
-    // 白名单机制下，全部为自动允许工具时不再报 waiting_permission，直接视为 working
-    writeLines([
-      { type: "assistant", message: { stop_reason: "tool_use", content: [
-        { type: "tool_use", id: "t1", name: "TodoWrite" },
-        { type: "tool_use", id: "t2", name: "TaskCreate" },
-      ] } },
-    ]);
-    const result = await detectSessionState(TMP_FILE);
-    expect(result?.state).toBe("working");
-    expect(result?.detail).toBeUndefined();
-  });
 });
