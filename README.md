@@ -14,12 +14,11 @@ Current ▰▰▰▱▱▱▱▱▱▱ 32% ↻2 hr 35 min │ All ▰▰▰▰�
 - **上下文窗口** — 实时使用百分比，颜色阈值（绿/黄/红）
 - **Rate Limits** — 5 小时和 7 天用量，倒计时/重置时间
 - **Git 分支** — 从 `.git/HEAD` 读取当前分支
-- **活跃工具** — 正在运行和已完成的工具调用及次数
-- **多会话监控** — 检测本机其他活跃的 Claude Code 会话
-- **Token 用量** — 累计 input/output tokens
+- **活跃工具** — 运行中工具显示 Braille 旋转帧 + 输入摘要，已完成工具按次数聚合
+- **多会话监控** — 检测本机其他活跃的 Claude Code 会话，可选系统通知
+- **Token 用量 / 输出速度** — 累计 input/output tokens，可选实时输出速度
 - **用量报告** — 生成带图表的 HTML 报告
-- **显示预设** — full / essential / minimal 三种模式
-- **自动更新** — 每次会话启动时后台检查，无感更新，下次会话生效
+- **显示预设** — `full` / `essential` / `minimal` + 完全自定义
 
 ## 快速开始
 
@@ -31,31 +30,22 @@ Current ▰▰▰▱▱▱▱▱▱▱ 32% ↻2 hr 35 min │ All ▰▰▰▰�
 curl -fsSL https://bun.sh/install | bash
 ```
 
-### 2. 一键安装
+### 2. 安装插件（推荐）
 
-```bash
-REPO=ssh://git@10.10.2.124:2222/junchi.ren/cli-hud.git
-T=~/.claude/plugins/cli-hud
-[ -d "$T/.git" ] && git -C "$T" pull --ff-only \
-  || { rm -rf "$T" && git clone "$REPO" "$T"; }
-"$T/install.sh"
+在 Claude Code 中直接执行：
+
+```
+/plugin marketplace add renjunchi/claude-hud
+/plugin install cli-hud@cli-hud
 ```
 
-这会自动 clone（或更新）到 `~/.claude/plugins/cli-hud`，安装依赖并配置 statusline。
+第一行把本仓库注册为名为 `cli-hud` 的 marketplace（拉取根目录的 `.claude-plugin/marketplace.json`）；第二行的 `cli-hud@cli-hud` 表示「从 marketplace `cli-hud` 安装插件 `cli-hud`」（格式为 `<plugin>@<marketplace>`）。
 
-安装后会注册 SessionStart hook，每次会话启动时自动检查更新（1 小时冷却），后台静默完成，下次会话生效。
+升级 / 卸载也走原生命令：
 
-> 已安装过？再次运行同一命令即可手动更新，或等待自动更新。
-
-**Windows (PowerShell)：**
-
-```powershell
-$Repo = "ssh://git@10.10.2.124:2222/junchi.ren/cli-hud.git"
-$T = "$env:USERPROFILE\.claude\plugins\cli-hud"
-if (Test-Path "$T\.git") { git -C $T pull --ff-only }
-elseif (Test-Path $T) { Remove-Item -Recurse -Force $T; git clone $Repo $T }
-else { git clone $Repo $T }
-& "$T\install.ps1"
+```
+/plugin update cli-hud@cli-hud
+/plugin uninstall cli-hud@cli-hud
 ```
 
 ### 3. 重启 Claude Code
@@ -69,44 +59,14 @@ Current ▰▰▱▱▱▱▱▱▱▱ 15% ↻3 hr 35 min │ All ▰▱▱▱�
 
 ### 4. 生成用量报告（可选）
 
-在 Claude Code 中直接输入：
+在 Claude Code 中输入 `/cli-hud:report`（或命令行 `bun run src/index.ts report`），会生成 `~/.claude/cli-hud-report.html` 并自动打开浏览器，包含：
 
-```
-/cli-hud:report
-```
+- 概览卡片（总会话数、总 tokens、活跃天数）
+- 每日 Token 消耗堆叠柱状图
+- 模型分布饼图（Opus / Sonnet / Haiku）
+- 最近 100 个会话列表
 
-或通过命令行：
-
-```bash
-bun run src/index.ts report
-```
-
-浏览器会自动打开一个带图表的 HTML 报告页面。
-
-### 切换显示预设
-
-如果信息太多或太少，可以切换预设：
-
-```bash
-# 创建配置文件
-echo '{ "preset": "essential" }' > ~/.claude/cli-hud.json
-```
-
-可选值：`full`（默认，最全）、`essential`（中等）、`minimal`（最简）。
-
-### 自定义显示元素
-
-可以基于预设覆盖个别开关，或完全自定义：
-
-```bash
-# 基于 full 预设，关闭会话监控
-echo '{ "preset": "full", "show": { "sessions": false } }' > ~/.claude/cli-hud.json
-
-# 完全自定义：只显示模型 + 上下文 + Rate Limits
-echo '{ "show": { "model": true, "contextBar": true, "rateLimits": true } }' > ~/.claude/cli-hud.json
-```
-
-`show` 可用的键：`model`、`contextBar`、`project`、`rateLimits`、`tools`、`agents`、`tokenUsage`、`sessions`。
+显示元素如不合用，见下方[配置](#配置)章节调整 preset 或自定义 `show` 字段。
 
 ### 关闭 / 恢复原生
 
@@ -132,82 +92,74 @@ bun run src/index.ts disable
 
 | 命令 | 说明 |
 |------|------|
-| `cli-hud` | Statusline 模式（由 Claude Code 每 ~300ms 调用） |
-| `cli-hud enable` | 启用 statusline（等同于 `setup`） |
+| `cli-hud` | Statusline 模式（由 Claude Code 每 ~300ms 调用，stdin 读 JSON） |
+| `cli-hud enable` / `cli-hud setup` | 启用 statusline，写入 `~/.claude/settings.json` |
 | `cli-hud disable` | 关闭 statusline，恢复 Claude Code 原生状态栏 |
-| `cli-hud report` | 生成 HTML 用量报告并打开浏览器 |
-| `cli-hud report --no-open` | 仅生成报告不打开 |
+| `cli-hud report [--no-open]` | 生成 HTML 用量报告，默认自动打开浏览器 |
+| `cli-hud watch start\|stop\|status` | 管理后台 watcher（多会话扫描与系统通知） |
 
-## 用量报告
+## 配置
+
+配置文件：`~/.claude/cli-hud.json`（缺省时使用 `full` 预设）。
 
 ```bash
-bun run src/index.ts report
+# 选预设
+echo '{ "preset": "essential" }' > ~/.claude/cli-hud.json
+
+# 在预设上覆盖个别开关
+echo '{ "preset": "full", "show": { "sessions": false } }' > ~/.claude/cli-hud.json
+
+# 完全自定义（未列出的元素一律不显示）
+echo '{ "show": { "model": true, "contextBar": true, "rateLimits": true } }' > ~/.claude/cli-hud.json
 ```
 
-生成 `~/.claude/cli-hud-report.html`，包含：
-- 概览卡片（总会话数、总 tokens、活跃天数）
-- 每日 Token 消耗堆叠柱状图
-- 模型分布饼图（Opus/Sonnet/Haiku）
-- 最近 100 个会话列表
-
-## 预设
-
-通过环境变量、配置文件或默认值设置：
+也可以用环境变量临时切换预设：
 
 ```bash
-# 环境变量
 CLAUDE_HUD_PRESET=minimal
-
-# 配置文件：~/.claude/cli-hud.json
-{ "preset": "essential" }
 ```
 
-**优先级：** 环境变量 `CLAUDE_HUD_PRESET` > `show` 字段 > `preset` 字段 > 默认 `full`
+**解析顺序**（见 `src/presets.ts`）：
 
-### 内置预设
+1. 选定**基础预设** —— `CLAUDE_HUD_PRESET` 环境变量 > 配置文件 `preset` 字段 > 默认 `full`
+2. 应用 `show` **覆盖** —— 配置文件中 `show` 字段的每个键独立覆盖基础预设对应开关
 
-| 元素 | full | essential | minimal |
-|------|------|-----------|---------|
-| 模型名称 | ✓ | ✓ | ✓ |
-| Context 进度条 | ✓ | ✓ | ✓ |
-| Git 分支 | ✓ | ✓ | ✓ |
-| Rate Limits | ✓ | ✓ | |
-| 活跃工具 | | | |
-| Token 用量 | | ✓ | |
-| 其他会话 | ✓ | ✓ | |
+特殊值：`preset: "custom"` 表示空白基础（所有开关默认 false），等价于不设 `preset` 而仅给 `show`。
 
-### 自定义配置
+### 内置预设对照
 
-在 `~/.claude/cli-hud.json` 中使用 `show` 字段自定义元素组合：
+| `show` 键 | 对应元素 | full | essential | minimal |
+|-----------|---------|:----:|:---------:|:-------:|
+| `model` | 模型名称 | ✓ | ✓ | ✓ |
+| `contextBar` | Context 进度条 | ✓ | ✓ | ✓ |
+| `project` | 项目名称 |  | ✓ |  |
+| `rateLimits` | Rate Limits | ✓ | ✓ |  |
+| `tools` | 活跃工具 | ✓ | ✓ |  |
+| `agents` | Agent 状态 |  |  |  |
+| `tokenUsage` | Token 用量 |  | ✓ |  |
+| `sessions` | 其他会话 | ✓ | ✓ |  |
+| `speed` | 输出速度 | ✓ | ✓ |  |
+| `notifications` | 系统通知 | ✓ | ✓ |  |
 
-```jsonc
-// 基于预设覆盖个别开关
-{ "preset": "full", "show": { "sessions": false } }
-
-// 完全自定义（未列出的元素不显示）
-{ "show": { "model": true, "contextBar": true, "rateLimits": true } }
-
-// 等同于上面，显式声明 custom
-{ "preset": "custom", "show": { "model": true, "contextBar": true, "rateLimits": true } }
-```
-
-| show 键 | 对应元素 |
-|---------|---------|
-| `model` | 模型名称 |
-| `contextBar` | Context 进度条 |
-| `project` | 项目名称 |
-| `rateLimits` | Rate Limits |
-| `tools` | 活跃工具 |
-| `agents` | Agent 状态 |
-| `tokenUsage` | Token 用量 |
-| `sessions` | 其他会话 |
+> Git 分支不受 `show` 控制，只要识别到 `.git/HEAD` 就显示。`agents` 默认所有预设关闭，需要时显式 `"show": { "agents": true }` 启用。
 
 ## 开发
 
 ```bash
-bun test          # 运行 126 个测试
-bun run build     # 构建 dist/cli-hud.js (~19KB)
+bun test          # 运行测试
+bun run build     # 构建 dist/cli-hud.js
 ```
+
+### 本地开发安装（developer mode）
+
+修改源码并希望在 Claude Code 中即时生效，使用 `install.sh` 把当前 checkout 注册为 directory marketplace（`cli-hud@cli-hud-local`）：
+
+```bash
+bash install.sh   # 注册 cli-hud-local marketplace + 启用 statusline
+bash uninstall.sh # 反注册并恢复原生 statusline
+```
+
+该路径只在本仓库目录下使用；普通用户应走上面的 `/plugin marketplace` 安装。
 
 ## 许可证
 
