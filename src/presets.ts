@@ -14,6 +14,8 @@ const PRESETS: Record<Preset, PresetConfig> = {
     showSessions: true,
     showSpeed: true,
     showNotifications: true,
+    showTasks: true,
+    showBackground: true,
   },
   essential: {
     showModel: true,
@@ -26,6 +28,8 @@ const PRESETS: Record<Preset, PresetConfig> = {
     showSessions: true,
     showSpeed: true,
     showNotifications: true,
+    showTasks: true,
+    showBackground: true,
   },
   minimal: {
     showModel: true,
@@ -38,6 +42,8 @@ const PRESETS: Record<Preset, PresetConfig> = {
     showSessions: false,
     showSpeed: false,
     showNotifications: false,
+    showTasks: false,
+    showBackground: false,
   },
 };
 
@@ -53,6 +59,8 @@ const SHOW_KEY_MAP: Record<string, keyof PresetConfig> = {
   sessions: "showSessions",
   speed: "showSpeed",
   notifications: "showNotifications",
+  tasks: "showTasks",
+  background: "showBackground",
 };
 
 const CUSTOM_BASE: PresetConfig = {
@@ -66,6 +74,8 @@ const CUSTOM_BASE: PresetConfig = {
   showSessions: false,
   showSpeed: false,
   showNotifications: false,
+  showTasks: false,
+  showBackground: false,
 };
 
 function isValidPreset(value: string): value is Preset {

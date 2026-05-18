@@ -15,6 +15,8 @@ Current ▰▰▰▱▱▱▱▱▱▱ 32% ↻2 hr 35 min │ All ▰▰▰▰�
 - **Rate Limits** — 5 小时和 7 天用量，倒计时/重置时间
 - **Git 分支** — 从 `.git/HEAD` 读取当前分支
 - **活跃工具** — 运行中工具显示 Braille 旋转帧 + 输入摘要，已完成工具按次数聚合
+- **后台任务** — `run_in_background:true` 的 Bash / Agent 独立成行 `bg: ⠋ Bash: …`
+- **任务进度** — TaskCreate / TaskUpdate 派生 `Tasks ✓2/5 ↻1`
 - **多会话监控** — 检测本机其他活跃的 Claude Code 会话，可选状态提示行（长任务完成 / 出错）+ 终端铃声
 - **Token 用量 / 输出速度** — 累计 input/output tokens，可选实时输出速度
 - **用量报告** — 生成带图表的 HTML 报告
@@ -134,12 +136,16 @@ CLAUDE_HUD_PRESET=minimal
 | `contextBar` | Context 进度条 | ✓ | ✓ | ✓ |
 | `project` | 项目名称 |  | ✓ |  |
 | `rateLimits` | Rate Limits | ✓ | ✓ |  |
-| `tools` | 活跃工具 | ✓ | ✓ |  |
+| `tools` | 活跃工具（前台） | ✓ | ✓ |  |
+| `background` | 后台 Bash / Agent（`run_in_background:true`） | ✓ | ✓ |  |
+| `tasks` | TaskCreate 任务进度 `Tasks ✓2/5 ↻1` | ✓ | ✓ |  |
 | `agents` | Agent 状态 |  |  |  |
 | `tokenUsage` | Token 用量 |  | ✓ |  |
 | `sessions` | 其他会话 | ✓ | ✓ |  |
 | `speed` | 输出速度 | ✓ | ✓ |  |
 | `notifications` | 跨会话状态行（✓ 长任务完成 / ✗ 出错）+ 铃声 | ✓ | ✓ |  |
+
+> `notifications` 开关同时控制是否启动后台 watcher daemon —— 关掉它就不会有 `cli-hud watch --daemon` 子进程被自动拉起。
 
 > Git 分支不受 `show` 控制，只要识别到 `.git/HEAD` 就显示。`agents` 默认所有预设关闭，需要时显式 `"show": { "agents": true }` 启用。
 

@@ -18,6 +18,8 @@ function makeTranscript(overrides: Partial<TranscriptData> = {}): TranscriptData
   return {
     tools: [],
     agents: [],
+    skills: new Set(),
+    tasks: [],
     usage: makeUsage(),
     ...overrides,
   };

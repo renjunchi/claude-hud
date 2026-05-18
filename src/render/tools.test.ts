@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { renderToolsLine, SPINNER_FRAMES } from "./tools";
+import { renderToolsLine, renderBackgroundLine, SPINNER_FRAMES } from "./tools";
 import { stripAnsi } from "./colors";
 import type { ToolEntry } from "../types";
 
@@ -74,5 +74,59 @@ describe("renderToolsLine", () => {
     const runIdx = line.indexOf("Read");
     const doneIdx = line.indexOf("Grep");
     expect(runIdx).toBeLessThan(doneIdx);
+  });
+
+  test("background 工具不进入前台 tools 行", () => {
+    const tools: ToolEntry[] = [
+      { id: "1", name: "Bash", status: "running", background: true, summary: "npm run dev" },
+      { id: "2", name: "Read", status: "running" },
+    ];
+    const line = stripAnsi(renderToolsLine(tools)!);
+    expect(line).not.toContain("Bash");
+    expect(line).toContain("Read");
+  });
+
+  test("全部为 background 时前台 tools 行返回 null", () => {
+    const tools: ToolEntry[] = [
+      { id: "1", name: "Bash", status: "running", background: true },
+    ];
+    expect(renderToolsLine(tools)).toBeNull();
+  });
+});
+
+describe("renderBackgroundLine", () => {
+  test("无 background 工具时返回 null", () => {
+    const tools: ToolEntry[] = [{ id: "1", name: "Read", status: "running" }];
+    expect(renderBackgroundLine(tools)).toBeNull();
+  });
+
+  test("running background 显示 spinner + summary", () => {
+    const tools: ToolEntry[] = [
+      { id: "1", name: "Bash", status: "running", background: true, summary: "npm run dev" },
+    ];
+    const line = stripAnsi(renderBackgroundLine(tools)!);
+    expect(line).toContain("bg:");
+    expect(line).toContain("Bash");
+    expect(line).toContain("npm run dev");
+    const hasFrame = SPINNER_FRAMES.some((f) => line.includes(f));
+    expect(hasFrame).toBe(true);
+  });
+
+  test("completed background 显示 ✓", () => {
+    const tools: ToolEntry[] = [
+      { id: "1", name: "Bash", status: "completed", background: true, summary: "build" },
+    ];
+    const line = stripAnsi(renderBackgroundLine(tools)!);
+    expect(line).toContain("✓");
+    expect(line).toContain("Bash");
+  });
+
+  test("多条 background 用 │ 分隔", () => {
+    const tools: ToolEntry[] = [
+      { id: "1", name: "Bash", status: "running", background: true, summary: "a" },
+      { id: "2", name: "Agent", status: "running", background: true, summary: "b" },
+    ];
+    const line = stripAnsi(renderBackgroundLine(tools)!);
+    expect(line).toContain("│");
   });
 });

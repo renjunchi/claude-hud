@@ -33,17 +33,19 @@ async function main(): Promise<void> {
     return;
   }
 
-  // 自动拉起后台 watcher（不阻塞渲染）
-  ensureWatcher();
+  // 先解析 preset，决定是否需要后台 watcher（避免关 UI 不等于关行为）
+  const presetConfig = await resolvePresetConfig();
+
+  // 仅在用户开启跨会话通知时才拉起 watcher daemon
+  if (presetConfig.showNotifications) {
+    ensureWatcher();
+  }
 
   // Read stdin JSON from Claude Code
   const stdin = await readStdin();
 
   // Parse transcript for tools/agents data
   const transcript = await parseTranscript(stdin.transcript_path);
-
-  // Resolve display preset config
-  const presetConfig = await resolvePresetConfig();
 
   // Detect terminal width (stderr since stdout is piped)
   const termWidth = process.stderr.columns || process.stdout.columns || 120;

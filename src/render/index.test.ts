@@ -15,7 +15,7 @@ function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
         seven_day: { used_percentage: 5 },
       },
     },
-    transcript: { tools: [], agents: [], skills: new Set(), usage: { inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0, model: "" } },
+    transcript: { tools: [], agents: [], skills: new Set(), tasks: [], usage: { inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0, model: "" } },
     presetConfig: PRESETS.full,
     termWidth: 120,
     ...overrides,
@@ -37,6 +37,7 @@ describe("render", () => {
         tools: [{ id: "1", name: "Read", status: "completed" }],
         agents: [{ id: "1", type: "Explore", status: "completed" }],
         skills: new Set(),
+        tasks: [],
         usage: { inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0, model: "" },
       },
     });
@@ -53,6 +54,7 @@ describe("render", () => {
         tools: [{ id: "1", name: "Read", status: "completed" }],
         agents: [],
         skills: new Set(),
+        tasks: [],
         usage: { inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0, model: "" },
       },
     });
@@ -78,6 +80,9 @@ describe("render", () => {
       showTokenUsage: false,
       showSessions: false,
       showSpeed: false,
+      showNotifications: false,
+      showTasks: false,
+      showBackground: false,
     };
     const output = stripAnsi(await render(makeCtx({ presetConfig: custom })));
     expect(output).toContain("Opus 4.6");

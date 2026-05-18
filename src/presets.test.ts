@@ -38,10 +38,14 @@ describe("PRESETS", () => {
   });
 
   test("all presets have all required fields", () => {
-    const requiredFields = ["showModel", "showContextBar", "showProject", "showRateLimits", "showTools", "showAgents", "showTokenUsage", "showSessions"];
-    for (const [name, preset] of Object.entries(PRESETS)) {
+    const requiredFields = [
+      "showModel", "showContextBar", "showProject", "showRateLimits",
+      "showTools", "showAgents", "showTokenUsage", "showSessions",
+      "showSpeed", "showNotifications", "showTasks", "showBackground",
+    ];
+    for (const [, preset] of Object.entries(PRESETS)) {
       for (const field of requiredFields) {
-        expect(typeof (preset as Record<string, unknown>)[field]).toBe("boolean");
+        expect(typeof (preset as unknown as Record<string, unknown>)[field]).toBe("boolean");
       }
     }
   });

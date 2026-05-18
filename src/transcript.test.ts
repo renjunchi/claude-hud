@@ -100,13 +100,57 @@ describe("parseTranscript", () => {
     expect(result.tools.length).toBe(1);
   });
 
-  test("filters out TaskCreate/TaskUpdate tools", async () => {
+  test("TaskCreate/TaskUpdate 不进入 tools 行（仍被过滤）", async () => {
     writeTranscript([
-      { type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "TaskCreate" }] } },
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "TaskCreate", input: { subject: "do x" } }] } },
       { type: "assistant", message: { content: [{ type: "tool_use", id: "t2", name: "Read" }] } },
     ]);
     const result = await parseTranscript(TMP_FILE);
     expect(result.tools.length).toBe(1);
     expect(result.tools[0].name).toBe("Read");
+  });
+
+  test("TaskCreate 进入 tasks[]，id 按顺序从 1 开始", async () => {
+    writeTranscript([
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "u1", name: "TaskCreate", input: { subject: "first" } }] } },
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "u2", name: "TaskCreate", input: { subject: "second" } }] } },
+    ]);
+    const result = await parseTranscript(TMP_FILE);
+    expect(result.tasks.length).toBe(2);
+    expect(result.tasks[0]).toEqual({ id: "1", subject: "first", status: "pending" });
+    expect(result.tasks[1]).toEqual({ id: "2", subject: "second", status: "pending" });
+  });
+
+  test("TaskUpdate 按 taskId 更新已有任务状态", async () => {
+    writeTranscript([
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "u1", name: "TaskCreate", input: { subject: "first" } }] } },
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "u2", name: "TaskCreate", input: { subject: "second" } }] } },
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "u3", name: "TaskUpdate", input: { taskId: "1", status: "in_progress" } }] } },
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "u4", name: "TaskUpdate", input: { taskId: "1", status: "completed" } }] } },
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "u5", name: "TaskUpdate", input: { taskId: "2", status: "deleted" } }] } },
+    ]);
+    const result = await parseTranscript(TMP_FILE);
+    expect(result.tasks[0].status).toBe("completed");
+    expect(result.tasks[1].status).toBe("deleted");
+  });
+
+  test("TaskUpdate 对未知 taskId 不创建占位任务", async () => {
+    writeTranscript([
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "u1", name: "TaskUpdate", input: { taskId: "99", status: "completed" } }] } },
+    ]);
+    const result = await parseTranscript(TMP_FILE);
+    expect(result.tasks.length).toBe(0);
+  });
+
+  test("Bash 带 run_in_background:true 时标记为 background", async () => {
+    writeTranscript([
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "Bash", input: { command: "npm run dev", run_in_background: true } }] } },
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "t2", name: "Bash", input: { command: "ls" } }] } },
+    ]);
+    const result = await parseTranscript(TMP_FILE);
+    const bg = result.tools.find((t) => t.id === "t1")!;
+    const fg = result.tools.find((t) => t.id === "t2")!;
+    expect(bg.background).toBe(true);
+    expect(fg.background).toBeUndefined();
   });
 });

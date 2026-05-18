@@ -2,7 +2,7 @@ import { join, resolve } from "path";
 import { homedir } from "os";
 import { createHash } from "crypto";
 import { mkdirSync, renameSync } from "fs";
-import type { TranscriptData, ToolEntry, AgentEntry, TokenUsage } from "./types";
+import type { TranscriptData, ToolEntry, AgentEntry, TaskEntry, TokenUsage } from "./types";
 import { summarizeToolInput } from "./render/tool-summary";
 
 interface TranscriptLine {
@@ -43,6 +43,9 @@ interface CacheData {
   tools: ToolEntry[];
   agents: AgentEntry[];
   skills: string[];
+  tasks: TaskEntry[];
+  /** TaskCreate 见过的次数，用于在增量解析时延续 id 编号 */
+  taskCounter: number;
   usage: TokenUsage;
   firstAssistantTime?: string;
   lastAssistantTime?: string;
@@ -67,7 +70,13 @@ function getCachePath(transcriptPath: string): string {
 }
 
 export async function parseTranscript(transcriptPath?: string): Promise<TranscriptData> {
-  const empty: TranscriptData = { tools: [], agents: [], skills: new Set(), usage: emptyUsage() };
+  const empty: TranscriptData = {
+    tools: [],
+    agents: [],
+    skills: new Set(),
+    tasks: [],
+    usage: emptyUsage(),
+  };
   if (!transcriptPath) return empty;
 
   // 检查文件状态
@@ -106,6 +115,9 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
   const toolMap = new Map<string, ToolEntry>();
   const agentMap = new Map<string, AgentEntry>();
   const skillSet = new Set<string>();
+  const taskMap = new Map<string, TaskEntry>();
+  const taskOrder: string[] = [];
+  const taskCounterRef = { value: 0 };
   let usage: TokenUsage;
   let firstAssistantTime: string | undefined;
   let lastAssistantTime: string | undefined;
@@ -117,6 +129,11 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
     for (const t of cached.data.tools) toolMap.set(t.id, { ...t });
     for (const a of cached.data.agents) agentMap.set(a.id, { ...a });
     for (const s of cached.data.skills ?? []) skillSet.add(s);
+    for (const t of cached.data.tasks ?? []) {
+      taskMap.set(t.id, { ...t });
+      taskOrder.push(t.id);
+    }
+    taskCounterRef.value = cached.data.taskCounter ?? taskOrder.length;
     usage = { ...cached.data.usage };
     firstAssistantTime = cached.data.firstAssistantTime;
     lastAssistantTime = cached.data.lastAssistantTime;
@@ -134,6 +151,7 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
     return {
       ...cached!.data,
       skills: new Set(cached!.data.skills ?? []),
+      tasks: cached!.data.tasks ?? [],
     };
   }
 
@@ -149,7 +167,11 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
     }
   } catch {
     return canIncremental && cached
-      ? { ...cached.data, skills: new Set(cached.data.skills ?? []) }
+      ? {
+          ...cached.data,
+          skills: new Set(cached.data.skills ?? []),
+          tasks: cached.data.tasks ?? [],
+        }
       : empty;
   }
 
@@ -159,7 +181,7 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
     if (!line.trim()) continue;
     try {
       const entry: TranscriptLine = JSON.parse(line);
-      processEntry(entry, toolMap, agentMap, skillSet);
+      processEntry(entry, toolMap, agentMap, skillSet, taskMap, taskOrder, taskCounterRef);
 
       // 累计 token 用量
       if (entry.type === "assistant" && entry.message?.usage) {
@@ -191,10 +213,15 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
     }
   }
 
+  const tasks: TaskEntry[] = taskOrder
+    .map((id) => taskMap.get(id))
+    .filter((t): t is TaskEntry => t != null);
+
   const result: TranscriptData = {
     tools: Array.from(toolMap.values()).slice(-20),
     agents: Array.from(agentMap.values()).slice(-10),
     skills: skillSet,
+    tasks,
     usage,
     firstAssistantTime,
     lastAssistantTime,
@@ -209,7 +236,11 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
       transcriptPath: resolve(transcriptPath),
       parsedBytes: fileSize,
       size: fileSize,
-      data: { ...result, skills: Array.from(result.skills) },
+      data: {
+        ...result,
+        skills: Array.from(result.skills),
+        taskCounter: taskCounterRef.value,
+      },
     };
     const tmpPath = `${cachePath}.${process.pid}.tmp`;
     await Bun.write(tmpPath, JSON.stringify(payload));
@@ -226,6 +257,9 @@ function processEntry(
   toolMap: Map<string, ToolEntry>,
   agentMap: Map<string, AgentEntry>,
   skillSet: Set<string>,
+  taskMap: Map<string, TaskEntry>,
+  taskOrder: string[],
+  taskCounterRef: { value: number },
 ): void {
   const content = entry.message?.content;
   if (!content || !Array.isArray(content)) return;
@@ -236,6 +270,27 @@ function processEntry(
         const input = block.input as Record<string, unknown>;
         const skillName = input?.skill as string | undefined;
         if (skillName) skillSet.add(skillName);
+      } else if (block.name === "TaskCreate") {
+        // Claude 按 TaskCreate 顺序分配 id="1","2",...，与我们计数一致
+        const input = block.input as Record<string, unknown>;
+        taskCounterRef.value += 1;
+        const id = String(taskCounterRef.value);
+        taskMap.set(id, {
+          id,
+          subject: (input?.subject as string) ?? undefined,
+          status: "pending",
+        });
+        taskOrder.push(id);
+      } else if (block.name === "TaskUpdate") {
+        const input = block.input as Record<string, unknown>;
+        const taskId = input?.taskId as string | undefined;
+        const status = input?.status as string | undefined;
+        if (taskId && status) {
+          const existing = taskMap.get(taskId);
+          if (existing && isTaskStatus(status)) {
+            existing.status = status;
+          }
+        }
       } else if (block.name === "Task" || block.name === "Agent") {
         const input = block.input as Record<string, unknown>;
         agentMap.set(block.id, {
@@ -244,13 +299,16 @@ function processEntry(
           description: (input?.description as string) ?? undefined,
           status: "running",
         });
-      // 过滤 Claude Code 内部任务管理工具，这些工具在 HUD 中无展示价值且产生噪音
-      } else if (block.name !== "TodoWrite" && block.name !== "TaskCreate" && block.name !== "TaskUpdate") {
+      // TodoWrite 仍过滤（旧版工具，已被 TaskCreate/TaskUpdate 取代）
+      } else if (block.name !== "TodoWrite") {
+        const input = block.input as Record<string, unknown> | undefined;
+        const isBackground = input?.run_in_background === true;
         toolMap.set(block.id, {
           id: block.id,
           name: block.name,
           status: "running",
           summary: summarizeToolInput(block.name, block.input),
+          background: isBackground ? true : undefined,
         });
       }
     }
@@ -266,4 +324,8 @@ function processEntry(
       }
     }
   }
+}
+
+function isTaskStatus(s: string): s is TaskEntry["status"] {
+  return s === "pending" || s === "in_progress" || s === "completed" || s === "deleted";
 }

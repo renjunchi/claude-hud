@@ -14,15 +14,18 @@ function currentSpinner(): string {
   return SPINNER_FRAMES[idx]!;
 }
 
-/** Render active tools line */
+/** Render active tools line (前台工具) */
 export function renderToolsLine(tools: ToolEntry[]): string | null {
   if (tools.length === 0) return null;
+
+  const foreground = tools.filter((t) => !t.background);
+  if (foreground.length === 0) return null;
 
   const running: ToolEntry[] = [];
   const completedCounts = new Map<string, number>();
   const errorCounts = new Map<string, number>();
 
-  for (const tool of tools) {
+  for (const tool of foreground) {
     if (tool.status === "running") {
       running.push(tool);
     } else if (tool.status === "completed") {
@@ -54,4 +57,38 @@ export function renderToolsLine(tools: ToolEntry[]): string | null {
 
   if (parts.length === 0) return null;
   return parts.join(color(" │ ", dim)); // │
+}
+
+/** Render background tools line（run_in_background:true 的 Bash / Agent） */
+export function renderBackgroundLine(tools: ToolEntry[]): string | null {
+  const bg = tools.filter((t) => t.background);
+  if (bg.length === 0) return null;
+
+  const spin = currentSpinner();
+  const parts: string[] = [color("bg:", dim)];
+
+  for (const tool of bg) {
+    if (tool.status === "running") {
+      const label = tool.summary
+        ? `${spin} ${tool.name}: ${tool.summary}`
+        : `${spin} ${tool.name}`;
+      parts.push(color(label, yellow));
+    } else if (tool.status === "completed") {
+      const label = tool.summary
+        ? `${CHECK} ${tool.name}: ${tool.summary}`
+        : `${CHECK} ${tool.name}`;
+      parts.push(color(label, green));
+    } else {
+      const label = tool.summary
+        ? `${CROSS} ${tool.name}: ${tool.summary}`
+        : `${CROSS} ${tool.name}`;
+      parts.push(color(label, red));
+    }
+  }
+
+  // 第一段是 "bg:" 标签，后续工具用分隔符串联
+  const head = parts[0]!;
+  const rest = parts.slice(1);
+  if (rest.length === 0) return null;
+  return `${head} ${rest.join(color(" │ ", dim))}`;
 }

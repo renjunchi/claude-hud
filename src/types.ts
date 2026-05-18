@@ -35,6 +35,8 @@ export interface ToolEntry {
   status: "running" | "completed" | "error";
   /** 预计算好的输入摘要，已截断 —— 仅 running 工具显示 */
   summary?: string;
+  /** Bash / Agent run_in_background:true 标记，渲染时单独成行 */
+  background?: boolean;
 }
 
 export interface AgentEntry {
@@ -42,6 +44,14 @@ export interface AgentEntry {
   type: string;
   description?: string;
   status: "running" | "completed";
+}
+
+/** 单次 session 内的 Task（TaskCreate / TaskUpdate 派生） */
+export interface TaskEntry {
+  /** Claude 分配的顺序 id，从 1 开始的字符串 */
+  id: string;
+  subject?: string;
+  status: "pending" | "in_progress" | "completed" | "deleted";
 }
 
 export interface TokenUsage {
@@ -57,6 +67,8 @@ export interface TranscriptData {
   agents: AgentEntry[];
   /** Unique skill names used in this session */
   skills: Set<string>;
+  /** 按 TaskCreate 顺序排列的任务 */
+  tasks: TaskEntry[];
   usage: TokenUsage;
   /** ISO timestamp of the first assistant message */
   firstAssistantTime?: string;
@@ -95,6 +107,8 @@ export interface PresetConfig {
   showSessions: boolean;
   showSpeed: boolean;
   showNotifications: boolean;
+  showTasks: boolean;
+  showBackground: boolean;
 }
 
 export interface RenderContext {

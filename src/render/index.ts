@@ -1,7 +1,8 @@
 import type { RenderContext } from "../types";
 import { renderSessionLine, renderRateLimitsLine } from "./context-bar";
-import { renderToolsLine } from "./tools";
+import { renderToolsLine, renderBackgroundLine } from "./tools";
 import { renderAgentsLine } from "./agents";
+import { renderTasksLine } from "./tasks";
 import { renderTokenUsageLine } from "./token-usage";
 import { renderSessionsLine, renderNotificationsLine } from "./sessions";
 import {
@@ -53,6 +54,16 @@ export async function render(ctx: RenderContext): Promise<string> {
   if (preset.showTools) {
     const toolsLine = await safe(() => renderToolsLine(ctx.transcript.tools));
     if (toolsLine) lines.push(toolsLine);
+  }
+
+  if (preset.showBackground) {
+    const bgLine = await safe(() => renderBackgroundLine(ctx.transcript.tools));
+    if (bgLine) lines.push(bgLine);
+  }
+
+  if (preset.showTasks) {
+    const tasksLine = await safe(() => renderTasksLine(ctx.transcript.tasks));
+    if (tasksLine) lines.push(tasksLine);
   }
 
   if (preset.showNotifications && sessions && sessions.length > 0) {
