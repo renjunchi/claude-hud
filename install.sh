@@ -16,33 +16,26 @@ if ! command -v bun &>/dev/null; then
   exit 1
 fi
 
-# 2. Reset working tree to match HEAD (in case local files were modified)
 cd "$SCRIPT_DIR"
-git checkout -- . 2>/dev/null || true
 
-# 3. Install dependencies
+# 2. Install dependencies
 bun install --frozen-lockfile 2>/dev/null || bun install
 
-# 4. Read version and git sha
+# 3. Read version and git sha
 VER=$(python3 -c "import json; print(json.load(open('$SCRIPT_DIR/.claude-plugin/plugin.json')).get('version','0.1.0'))" 2>/dev/null || echo "0.1.0")
 SHA=$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || echo "unknown")
 
-# 5. Copy plugin to cache directory (mirroring how Claude Code manages plugins)
+# 4. Symlink plugin cache to source tree — dev mode 改一次 src/ 就立即生效，
+#    无需 rsync 同步。production 用户走 /plugin marketplace，不经此脚本。
 CACHE_DIR="${CLAUDE_DIR}/plugins/cache/cli-hud-local/cli-hud/${VER}"
 rm -rf "$CACHE_DIR"
-mkdir -p "$CACHE_DIR"
-# Copy plugin files (exclude .git, node_modules, docs, tests)
-rsync -a --exclude='.git' --exclude='node_modules' --exclude='docs' \
-  --exclude='*.test.ts' --exclude='.agentic-dev.yaml' \
-  "$SCRIPT_DIR/" "$CACHE_DIR/"
-# Install dependencies in cache dir
-cd "$CACHE_DIR"
-bun install --frozen-lockfile 2>/dev/null || bun install
+mkdir -p "$(dirname "$CACHE_DIR")"
+ln -s "$SCRIPT_DIR" "$CACHE_DIR"
 
-# 6. Ensure plugins directory exists
+# 5. Ensure plugins directory exists
 mkdir -p "${CLAUDE_DIR}/plugins"
 
-# 7. Register in known_marketplaces.json (and remove conflicting "cli-hud" marketplace if present)
+# 6. Register in known_marketplaces.json (and remove conflicting "cli-hud" marketplace if present)
 python3 - "$SCRIPT_DIR" "$MARKETPLACES_FILE" <<'PYEOF'
 import json, sys, os, shutil
 from datetime import datetime, timezone
@@ -74,7 +67,7 @@ with open(mp_file, "w") as f:
 PYEOF
 echo "Registered marketplace: cli-hud-local"
 
-# 8. Register in installed_plugins.json (point to cache dir)
+# 7. Register in installed_plugins.json (point to cache dir)
 python3 - "$CACHE_DIR" "$VER" "$SHA" "$INSTALLED_FILE" <<'PYEOF'
 import json, sys, os
 from datetime import datetime, timezone
@@ -102,17 +95,17 @@ with open(inst_file, "w") as f:
 PYEOF
 echo "Registered plugin: cli-hud@cli-hud-local"
 
-# 9. Clean old version cache directories
+# 8. Clean old version cache directories
 for old_dir in "$CLAUDE_DIR/plugins/cache/cli-hud-local/cli-hud/"*/; do
   if [ -d "$old_dir" ] && [ "$old_dir" != "$CACHE_DIR/" ]; then
     rm -rf "$old_dir"
   fi
 done
 
-# 10. Enable plugin (plugins are disabled by default after manual registration)
+# 9. Enable plugin (plugins are disabled by default after manual registration)
 claude plugin enable cli-hud@cli-hud-local 2>/dev/null || true
 
-# 11. Configure statusline (use cache dir)
+# 10. Configure statusline (use cache dir)
 bun "$CACHE_DIR/src/index.ts" enable
 
 echo ""
@@ -120,4 +113,4 @@ echo "cli-hud installed successfully (developer mode)!"
 echo "  Plugin path: $CACHE_DIR"
 echo "  Marketplace: cli-hud-local (directory source → $SCRIPT_DIR)"
 echo "  Commands: /cli-hud:enable, /cli-hud:disable, /cli-hud:report"
-echo "  Update flow: re-run \`bash $SCRIPT_DIR/install.sh\` after pulling."
+echo "  Update flow: src/ 改动即时生效（symlink）；只在 plugin.json 版本号变更后才需重跑 install.sh。"
