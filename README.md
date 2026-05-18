@@ -155,18 +155,21 @@ CLAUDE_HUD_PRESET=minimal
 ## 开发
 
 ```bash
-bun test          # 运行测试
+bun test          # 运行测试（~1s，213 用例）
+bun run test:perf # statusline 主路径性能护栏（重构 transcript/sessions 等热路径后必跑）
 bun run build     # 构建 dist/cli-hud.js
 ```
 
 ### 本地开发安装（developer mode）
 
-修改源码并希望在 Claude Code 中即时生效，使用 `install.sh` 把当前 checkout 注册为 directory marketplace（`cli-hud@cli-hud-local`）：
+`install.sh` 把 Claude Code 的插件缓存目录 `symlink` 到当前 checkout，注册为 directory marketplace（`cli-hud@cli-hud-local`）：
 
 ```bash
-bash install.sh   # 注册 cli-hud-local marketplace + 启用 statusline
+bash install.sh   # symlink 缓存 + 注册 marketplace + 启用 statusline
 bash uninstall.sh # 反注册并恢复原生 statusline
 ```
+
+由于是 symlink，`src/` 改动**即时生效**（下一次 ~300ms statusline tick 就用新代码），无需重跑 `install.sh`；只在 `.claude-plugin/plugin.json` 的版本号变更后才需要再装一次（version 是缓存路径的一部分）。
 
 该路径只在本仓库目录下使用；普通用户应走上面的 `/plugin marketplace` 安装。
 

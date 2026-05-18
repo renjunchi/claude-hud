@@ -5,7 +5,18 @@ import { render } from "./render/index";
 import { setup, disable } from "./cli/setup";
 import { report } from "./cli/report";
 import { ensureWatcher } from "./watcher";
-import type { RenderContext } from "./types";
+import type { PresetConfig, RenderContext, StdinData } from "./types";
+
+/** Statusline 热路径核心：transcript 解析 + render。无 stdin/stdout 副作用，便于性能基准测试。 */
+export async function resolveAndRender(
+  stdin: StdinData,
+  presetConfig: PresetConfig,
+  termWidth: number,
+): Promise<string> {
+  const transcript = await parseTranscript(stdin.transcript_path);
+  const ctx: RenderContext = { stdin, transcript, presetConfig, termWidth };
+  return await render(ctx);
+}
 
 async function main(): Promise<void> {
   // CLI subcommands
@@ -44,17 +55,10 @@ async function main(): Promise<void> {
   // Read stdin JSON from Claude Code
   const stdin = await readStdin();
 
-  // Parse transcript for tools/agents data
-  const transcript = await parseTranscript(stdin.transcript_path);
-
   // Detect terminal width (stderr since stdout is piped)
   const termWidth = process.stderr.columns || process.stdout.columns || 120;
 
-  // Build render context
-  const ctx: RenderContext = { stdin, transcript, presetConfig, termWidth };
-
-  // Render and output
-  const output = await render(ctx);
+  const output = await resolveAndRender(stdin, presetConfig, termWidth);
   console.log(output);
 }
 
