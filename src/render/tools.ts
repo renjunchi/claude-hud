@@ -10,15 +10,45 @@ const CHECK = "✓";
 const CROSS = "✗";
 const MULT = "×";
 
+const COLOR_BY_STATUS: Record<ToolEntry["status"], string> = {
+  running: yellow,
+  completed: green,
+  error: red,
+};
+
+const ICON_BY_STATUS: Record<Exclude<ToolEntry["status"], "running">, string> = {
+  completed: CHECK,
+  error: CROSS,
+};
+
 function currentSpinner(): string {
   const idx = Math.floor(Date.now() / SPINNER_STEP_MS) % SPINNER_FRAMES.length;
   return SPINNER_FRAMES[idx]!;
 }
 
+const SEPARATOR = color(" │ ", dim);
+
+interface PartOptions {
+  /** 仅 running 必填 */
+  spinner?: string;
+  /** 显示在 "Name: summary"；前景行的 completed/error 不传 */
+  summary?: string;
+  /** 聚合计数，>1 显示 ×N */
+  count?: number;
+}
+
+/** 单条工具的渲染单元：图标 + 名称 [+ summary] [+ ×count]，按状态着色 */
+function renderToolPart(name: string, status: ToolEntry["status"], opts: PartOptions = {}): string {
+  const displayName = formatToolName(name);
+  const icon = status === "running" ? opts.spinner ?? "" : ICON_BY_STATUS[status];
+  let body = `${icon} ${displayName}`;
+  if (opts.summary) body += `: ${opts.summary}`;
+  if (opts.count != null && opts.count > 1) body += ` ${MULT}${opts.count}`;
+  return color(body, COLOR_BY_STATUS[status]);
+}
+
 /** Render active tools line (前台工具) */
 export function renderToolsLine(tools: ToolEntry[]): string | null {
-  if (tools.length === 0) return null;
-
   const foreground = tools.filter((t) => !t.background);
   if (foreground.length === 0) return null;
 
@@ -40,25 +70,17 @@ export function renderToolsLine(tools: ToolEntry[]): string | null {
   const spin = currentSpinner();
 
   for (const tool of running) {
-    const displayName = formatToolName(tool.name);
-    const label = tool.summary
-      ? `${spin} ${displayName}: ${tool.summary}`
-      : `${spin} ${displayName}`;
-    parts.push(color(label, yellow));
+    parts.push(renderToolPart(tool.name, "running", { spinner: spin, summary: tool.summary }));
   }
-
   for (const [name, count] of completedCounts) {
-    const suffix = count > 1 ? ` ${MULT}${count}` : "";
-    parts.push(color(`${CHECK} ${formatToolName(name)}${suffix}`, green));
+    parts.push(renderToolPart(name, "completed", { count }));
   }
-
   for (const [name, count] of errorCounts) {
-    const suffix = count > 1 ? ` ${MULT}${count}` : "";
-    parts.push(color(`${CROSS} ${formatToolName(name)}${suffix}`, red));
+    parts.push(renderToolPart(name, "error", { count }));
   }
 
   if (parts.length === 0) return null;
-  return parts.join(color(" │ ", dim)); // │
+  return parts.join(SEPARATOR);
 }
 
 /** Render background tools line（run_in_background:true 的 Bash / Agent） */
@@ -67,31 +89,13 @@ export function renderBackgroundLine(tools: ToolEntry[]): string | null {
   if (bg.length === 0) return null;
 
   const spin = currentSpinner();
-  const parts: string[] = [color("bg:", dim)];
+  // 后台工具不聚合：每条任务都重要、单独显示，且保留 summary
+  const parts = bg.map((tool) =>
+    renderToolPart(tool.name, tool.status, {
+      spinner: spin,
+      summary: tool.summary,
+    }),
+  );
 
-  for (const tool of bg) {
-    const displayName = formatToolName(tool.name);
-    if (tool.status === "running") {
-      const label = tool.summary
-        ? `${spin} ${displayName}: ${tool.summary}`
-        : `${spin} ${displayName}`;
-      parts.push(color(label, yellow));
-    } else if (tool.status === "completed") {
-      const label = tool.summary
-        ? `${CHECK} ${displayName}: ${tool.summary}`
-        : `${CHECK} ${displayName}`;
-      parts.push(color(label, green));
-    } else {
-      const label = tool.summary
-        ? `${CROSS} ${displayName}: ${tool.summary}`
-        : `${CROSS} ${displayName}`;
-      parts.push(color(label, red));
-    }
-  }
-
-  // 第一段是 "bg:" 标签，后续工具用分隔符串联
-  const head = parts[0]!;
-  const rest = parts.slice(1);
-  if (rest.length === 0) return null;
-  return `${head} ${rest.join(color(" │ ", dim))}`;
+  return `${color("bg:", dim)} ${parts.join(SEPARATOR)}`;
 }
