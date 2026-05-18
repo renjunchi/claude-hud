@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import {
   getContextPercent,
   getModelName,
@@ -7,8 +7,11 @@ import {
   getRateLimit7d,
   formatResetCountdown,
   formatResetAbsolute,
+  getGitInfo,
 } from "./stdin";
 import type { StdinData } from "./types";
+import { mkdirSync, writeFileSync, rmSync } from "fs";
+import { join } from "path";
 
 describe("getContextPercent", () => {
   test("returns 0 for empty stdin", () => {
@@ -231,5 +234,61 @@ describe("formatResetAbsolute", () => {
 
     const result = formatResetAbsolute(ts);
     expect(result).toContain("12:00 AM");
+  });
+});
+
+describe("getGitInfo", () => {
+  const TMP = join(import.meta.dir, "..", ".test-tmp-git");
+
+  beforeAll(() => {
+    rmSync(TMP, { recursive: true, force: true });
+    // 主仓库布局
+    mkdirSync(join(TMP, "main", ".git"), { recursive: true });
+    writeFileSync(join(TMP, "main", ".git", "HEAD"), "ref: refs/heads/feature-x\n");
+    // 主仓库下的子目录（用于验证向上查找）
+    mkdirSync(join(TMP, "main", "src", "deep"), { recursive: true });
+    // worktree 布局：.git 是文件，指向主仓库 worktrees 目录
+    mkdirSync(join(TMP, "wt-checkout"), { recursive: true });
+    const wtDir = join(TMP, "main", ".git", "worktrees", "wt-1");
+    mkdirSync(wtDir, { recursive: true });
+    writeFileSync(join(wtDir, "HEAD"), "ref: refs/heads/wt-branch\n");
+    writeFileSync(join(TMP, "wt-checkout", ".git"), `gitdir: ${wtDir}\n`);
+    // detached HEAD 主仓库
+    mkdirSync(join(TMP, "detached", ".git"), { recursive: true });
+    writeFileSync(join(TMP, "detached", ".git", "HEAD"), "abc1234deadbeef\n");
+  });
+
+  afterAll(() => {
+    rmSync(TMP, { recursive: true, force: true });
+  });
+
+  test("无 cwd 返回空", async () => {
+    expect(await getGitInfo(undefined)).toEqual({ branch: "", isWorktree: false });
+  });
+
+  test("非 git 目录返回空", async () => {
+    expect(await getGitInfo("/tmp")).toEqual({ branch: "", isWorktree: false });
+  });
+
+  test("主仓库返回 branch + isWorktree=false", async () => {
+    const info = await getGitInfo(join(TMP, "main"));
+    expect(info).toEqual({ branch: "feature-x", isWorktree: false });
+  });
+
+  test("主仓库子目录向上查找 .git", async () => {
+    const info = await getGitInfo(join(TMP, "main", "src", "deep"));
+    expect(info.branch).toBe("feature-x");
+    expect(info.isWorktree).toBe(false);
+  });
+
+  test("worktree (.git 是文件) 返回 isWorktree=true", async () => {
+    const info = await getGitInfo(join(TMP, "wt-checkout"));
+    expect(info).toEqual({ branch: "wt-branch", isWorktree: true });
+  });
+
+  test("detached HEAD 返回短 SHA", async () => {
+    const info = await getGitInfo(join(TMP, "detached"));
+    expect(info.branch).toBe("abc1234");
+    expect(info.isWorktree).toBe(false);
   });
 });

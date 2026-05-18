@@ -64,6 +64,12 @@ describe("renderSessionLine", () => {
     expect(line).not.toContain("⎇");
   });
 
+  test("不在 worktree 时不显示 [wt]", async () => {
+    const ctx = makeCtx({ stdin: { model: { display_name: "Test" }, cwd: "/Users/renjunchi/WebServer/tools/claude-hud", context_window: { used_percentage: 4 } } });
+    const line = stripAnsi(await renderSessionLine(ctx));
+    expect(line).not.toContain("[wt]");
+  });
+
   test("shows speed when showSpeed is true and transcript has timestamps", async () => {
     const ctx = makeCtx({
       presetConfig: { ...PRESETS.full, showSpeed: true },

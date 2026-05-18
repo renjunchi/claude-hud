@@ -1,5 +1,5 @@
 import type { RenderContext } from "../types";
-import { getContextPercent, getModelName, getProjectName, getGitBranch, getRateLimit5h, getRateLimit7d, formatResetCountdown, formatResetAbsolute } from "../stdin";
+import { getContextPercent, getModelName, getProjectName, getGitInfo, getRateLimit5h, getRateLimit7d, formatResetCountdown, formatResetAbsolute } from "../stdin";
 import { color, contextColor, bold, cyan, gray, dim, yellow } from "./colors";
 import { calcOutputSpeed, formatSpeed } from "./token-usage";
 
@@ -47,10 +47,11 @@ export async function renderSessionLine(ctx: RenderContext): Promise<string> {
     parts.push(`${color("Context", dim)} ${bar} ${color(`${percent}%`, clr)}${compactHint}`);
   }
 
-  // Git branch
-  const branch = await getGitBranch(ctx.stdin.cwd);
-  if (branch) {
-    parts.push(color(`⎇ ${branch}`, dim));
+  // Git branch (+ worktree 标识)
+  const git = await getGitInfo(ctx.stdin.cwd);
+  if (git.branch) {
+    const wtMarker = git.isWorktree ? color(" [wt]", yellow) : "";
+    parts.push(color(`⎇ ${git.branch}`, dim) + wtMarker);
   }
 
   // Skills count

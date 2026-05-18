@@ -72,28 +72,62 @@ export function getRateLimit7d(stdin: StdinData): {
   return { percent: Math.round(rl.used_percentage), resetsAt: rl.resets_at ?? null };
 }
 
-/** Get current git branch from cwd by reading .git/HEAD */
-export async function getGitBranch(cwd?: string): Promise<string> {
-  if (!cwd) return "";
+function parseHead(content: string): string {
+  const trimmed = content.trim();
+  if (trimmed.startsWith("ref: refs/heads/")) {
+    return trimmed.slice("ref: refs/heads/".length);
+  }
+  // Detached HEAD — short SHA
+  return trimmed.slice(0, 7);
+}
+
+/**
+ * 读取 cwd 所在仓库的当前分支与 worktree 标志。
+ * 主仓库：`.git/` 是目录，HEAD 在 `.git/HEAD`。
+ * worktree：`.git` 是文件，内容形如 `gitdir: /path/to/.git/worktrees/NAME`，HEAD 在该目录下。
+ */
+export async function getGitInfo(
+  cwd?: string,
+): Promise<{ branch: string; isWorktree: boolean }> {
+  if (!cwd) return { branch: "", isWorktree: false };
   try {
+    const { stat } = await import("fs/promises");
     let dir = cwd;
-    // Walk up to find .git directory
     while (dir !== "/") {
-      const headFile = Bun.file(`${dir}/.git/HEAD`);
-      if (await headFile.exists()) {
-        const content = (await headFile.text()).trim();
-        if (content.startsWith("ref: refs/heads/")) {
-          return content.slice("ref: refs/heads/".length);
+      const gitPath = `${dir}/.git`;
+      try {
+        const s = await stat(gitPath);
+        if (s.isDirectory()) {
+          const headFile = Bun.file(`${gitPath}/HEAD`);
+          if (await headFile.exists()) {
+            return { branch: parseHead(await headFile.text()), isWorktree: false };
+          }
+        } else if (s.isFile()) {
+          const pointer = (await Bun.file(gitPath).text()).trim();
+          const m = pointer.match(/^gitdir:\s*(.+)$/m);
+          if (m && m[1]) {
+            const headFile = Bun.file(`${m[1].trim()}/HEAD`);
+            if (await headFile.exists()) {
+              return { branch: parseHead(await headFile.text()), isWorktree: true };
+            }
+          }
         }
-        // Detached HEAD — return short hash
-        return content.slice(0, 7);
+      } catch {
+        // stat 失败（多半不存在），向上走
       }
-      dir = dir.replace(/\/[^/]+$/, "") || "/";
+      const parent = dir.replace(/\/[^/]+$/, "") || "/";
+      if (parent === dir) break;
+      dir = parent;
     }
   } catch {
     // ignore
   }
-  return "";
+  return { branch: "", isWorktree: false };
+}
+
+/** 兼容包装：仅返回分支名（不区分 worktree） */
+export async function getGitBranch(cwd?: string): Promise<string> {
+  return (await getGitInfo(cwd)).branch;
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
