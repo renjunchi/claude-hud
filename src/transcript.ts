@@ -51,6 +51,7 @@ interface CacheData {
   lastAssistantTime?: string;
   lastOutputTokens?: number;
   prevAssistantTime?: string;
+  inPlanMode?: boolean;
 }
 
 interface CacheFile {
@@ -118,6 +119,7 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
   const taskMap = new Map<string, TaskEntry>();
   const taskOrder: string[] = [];
   const taskCounterRef = { value: 0 };
+  const planModeRef = { value: false };
   let usage: TokenUsage;
   let firstAssistantTime: string | undefined;
   let lastAssistantTime: string | undefined;
@@ -134,6 +136,7 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
       taskOrder.push(t.id);
     }
     taskCounterRef.value = cached.data.taskCounter ?? taskOrder.length;
+    planModeRef.value = cached.data.inPlanMode ?? false;
     usage = { ...cached.data.usage };
     firstAssistantTime = cached.data.firstAssistantTime;
     lastAssistantTime = cached.data.lastAssistantTime;
@@ -181,7 +184,7 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
     if (!line.trim()) continue;
     try {
       const entry: TranscriptLine = JSON.parse(line);
-      processEntry(entry, toolMap, agentMap, skillSet, taskMap, taskOrder, taskCounterRef);
+      processEntry(entry, toolMap, agentMap, skillSet, taskMap, taskOrder, taskCounterRef, planModeRef);
 
       // 累计 token 用量
       if (entry.type === "assistant" && entry.message?.usage) {
@@ -227,6 +230,7 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
     lastAssistantTime,
     lastOutputTokens,
     prevAssistantTime,
+    inPlanMode: planModeRef.value,
   };
 
   // 写入缓存（原子写，非致命）
@@ -240,6 +244,7 @@ export async function parseTranscript(transcriptPath?: string): Promise<Transcri
         ...result,
         skills: Array.from(result.skills),
         taskCounter: taskCounterRef.value,
+        inPlanMode: planModeRef.value,
       },
     };
     const tmpPath = `${cachePath}.${process.pid}.tmp`;
@@ -260,13 +265,18 @@ function processEntry(
   taskMap: Map<string, TaskEntry>,
   taskOrder: string[],
   taskCounterRef: { value: number },
+  planModeRef: { value: boolean },
 ): void {
   const content = entry.message?.content;
   if (!content || !Array.isArray(content)) return;
 
   for (const block of content) {
     if (block.type === "tool_use" && block.id && block.name) {
-      if (block.name === "Skill") {
+      if (block.name === "EnterPlanMode") {
+        planModeRef.value = true;
+      } else if (block.name === "ExitPlanMode") {
+        planModeRef.value = false;
+      } else if (block.name === "Skill") {
         const input = block.input as Record<string, unknown>;
         const skillName = input?.skill as string | undefined;
         if (skillName) skillSet.add(skillName);

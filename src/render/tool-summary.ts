@@ -41,6 +41,13 @@ export function summarizeToolInput(
     case "WebSearch":
       raw = String(i.query ?? "");
       break;
+    case "Skill": {
+      const full = String(i.skill ?? "");
+      if (!full) return undefined;
+      const colon = full.indexOf(":");
+      raw = colon >= 0 ? full.slice(colon + 1) : full;
+      break;
+    }
     default:
       return undefined;
   }

@@ -79,6 +79,49 @@ describe("renderSessionLine", () => {
     expect(line).toContain("⚡100 tok/s");
   });
 
+  test("inPlanMode=true 显示 [PLAN] 段", async () => {
+    const ctx = makeCtx({
+      transcript: {
+        tools: [], agents: [], skills: new Set(), tasks: [],
+        usage: { inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0, model: "" },
+        inPlanMode: true,
+      },
+    });
+    const line = stripAnsi(await renderSessionLine(ctx));
+    expect(line).toContain("[PLAN]");
+  });
+
+  test("inPlanMode=false 不显示 [PLAN]", async () => {
+    const line = stripAnsi(await renderSessionLine(makeCtx()));
+    expect(line).not.toContain("[PLAN]");
+  });
+
+  test("≥90% 时追加压缩提示 ↯", async () => {
+    const ctx = makeCtx({
+      stdin: {
+        model: { display_name: "Test" },
+        cwd: "/tmp",
+        context_window: { used_percentage: 92 },
+      },
+    });
+    const line = stripAnsi(await renderSessionLine(ctx));
+    expect(line).toContain("92%");
+    expect(line).toContain("↯");
+  });
+
+  test("<90% 时不显示压缩提示", async () => {
+    const ctx = makeCtx({
+      stdin: {
+        model: { display_name: "Test" },
+        cwd: "/tmp",
+        context_window: { used_percentage: 75 },
+      },
+    });
+    const line = stripAnsi(await renderSessionLine(ctx));
+    expect(line).toContain("75%");
+    expect(line).not.toContain("↯");
+  });
+
   test("hides speed when showSpeed is false", async () => {
     const ctx = makeCtx({
       presetConfig: { ...PRESETS.full, showSpeed: false },

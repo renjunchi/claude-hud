@@ -78,6 +78,8 @@ export interface TranscriptData {
   lastOutputTokens?: number;
   /** 最近一条 assistant 消息的前一条 assistant 时间戳 */
   prevAssistantTime?: string;
+  /** 是否处于 Plan Mode（EnterPlanMode 后未 ExitPlanMode） */
+  inPlanMode?: boolean;
 }
 
 /** 其他会话的运行状态 */

@@ -1,5 +1,6 @@
 import type { ToolEntry } from "../types";
 import { color, green, yellow, red, dim } from "./colors";
+import { formatToolName } from "./tool-name";
 
 // Braille 旋转帧；按时间戳取模选帧，让连续快照看起来在转
 export const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -39,20 +40,21 @@ export function renderToolsLine(tools: ToolEntry[]): string | null {
   const spin = currentSpinner();
 
   for (const tool of running) {
+    const displayName = formatToolName(tool.name);
     const label = tool.summary
-      ? `${spin} ${tool.name}: ${tool.summary}`
-      : `${spin} ${tool.name}`;
+      ? `${spin} ${displayName}: ${tool.summary}`
+      : `${spin} ${displayName}`;
     parts.push(color(label, yellow));
   }
 
   for (const [name, count] of completedCounts) {
     const suffix = count > 1 ? ` ${MULT}${count}` : "";
-    parts.push(color(`${CHECK} ${name}${suffix}`, green));
+    parts.push(color(`${CHECK} ${formatToolName(name)}${suffix}`, green));
   }
 
   for (const [name, count] of errorCounts) {
     const suffix = count > 1 ? ` ${MULT}${count}` : "";
-    parts.push(color(`${CROSS} ${name}${suffix}`, red));
+    parts.push(color(`${CROSS} ${formatToolName(name)}${suffix}`, red));
   }
 
   if (parts.length === 0) return null;
@@ -68,20 +70,21 @@ export function renderBackgroundLine(tools: ToolEntry[]): string | null {
   const parts: string[] = [color("bg:", dim)];
 
   for (const tool of bg) {
+    const displayName = formatToolName(tool.name);
     if (tool.status === "running") {
       const label = tool.summary
-        ? `${spin} ${tool.name}: ${tool.summary}`
-        : `${spin} ${tool.name}`;
+        ? `${spin} ${displayName}: ${tool.summary}`
+        : `${spin} ${displayName}`;
       parts.push(color(label, yellow));
     } else if (tool.status === "completed") {
       const label = tool.summary
-        ? `${CHECK} ${tool.name}: ${tool.summary}`
-        : `${CHECK} ${tool.name}`;
+        ? `${CHECK} ${displayName}: ${tool.summary}`
+        : `${CHECK} ${displayName}`;
       parts.push(color(label, green));
     } else {
       const label = tool.summary
-        ? `${CROSS} ${tool.name}: ${tool.summary}`
-        : `${CROSS} ${tool.name}`;
+        ? `${CROSS} ${displayName}: ${tool.summary}`
+        : `${CROSS} ${displayName}`;
       parts.push(color(label, red));
     }
   }

@@ -45,6 +45,24 @@ describe("summarizeToolInput", () => {
     expect(summarizeToolInput("Unknown", { x: 1 })).toBeUndefined();
   });
 
+  test("Skill: 显示 skill 名（去掉 plugin 前缀）", () => {
+    expect(summarizeToolInput("Skill", { skill: "ad:ad-2-auto-issue" })).toBe(
+      "ad-2-auto-issue",
+    );
+    expect(summarizeToolInput("Skill", { skill: "report" })).toBe("report");
+  });
+
+  test("Skill: 长 skill 名截断", () => {
+    const out = summarizeToolInput("Skill", {
+      skill: "ad:ad-harness-failure-handling",
+    });
+    expect(out!.length).toBeLessThanOrEqual(18);
+  });
+
+  test("Skill: 缺少 skill 字段返回 undefined", () => {
+    expect(summarizeToolInput("Skill", {})).toBeUndefined();
+  });
+
   test("空输入返回 undefined", () => {
     expect(summarizeToolInput("Read", null)).toBeUndefined();
     expect(summarizeToolInput("Read", {})).toBeUndefined();

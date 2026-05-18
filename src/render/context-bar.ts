@@ -1,6 +1,6 @@
 import type { RenderContext } from "../types";
 import { getContextPercent, getModelName, getProjectName, getGitBranch, getRateLimit5h, getRateLimit7d, formatResetCountdown, formatResetAbsolute } from "../stdin";
-import { color, contextColor, bold, cyan, gray, dim } from "./colors";
+import { color, contextColor, bold, cyan, gray, dim, yellow } from "./colors";
 import { calcOutputSpeed, formatSpeed } from "./token-usage";
 
 const FILLED = "\u25b0"; // ▰
@@ -24,6 +24,11 @@ export async function renderSessionLine(ctx: RenderContext): Promise<string> {
     parts.push(color(`[${model}]`, bold, cyan));
   }
 
+  // Plan Mode 标识
+  if (ctx.transcript.inPlanMode) {
+    parts.push(color("[PLAN]", bold, yellow));
+  }
+
   // Project name
   if (preset.showProject) {
     const project = getProjectName(ctx.stdin);
@@ -38,7 +43,8 @@ export async function renderSessionLine(ctx: RenderContext): Promise<string> {
     const barWidth = ctx.termWidth > 100 ? 15 : ctx.termWidth > 60 ? 10 : 6;
     const bar = renderBar(percent, barWidth);
     const clr = contextColor(percent);
-    parts.push(`${color("Context", dim)} ${bar} ${color(`${percent}%`, clr)}`);
+    const compactHint = percent >= 90 ? color(" ↯", clr) : "";
+    parts.push(`${color("Context", dim)} ${bar} ${color(`${percent}%`, clr)}${compactHint}`);
   }
 
   // Git branch

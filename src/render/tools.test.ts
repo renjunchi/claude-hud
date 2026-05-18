@@ -86,6 +86,29 @@ describe("renderToolsLine", () => {
     expect(line).toContain("Read");
   });
 
+  test("MCP 工具名压缩展示（running）", () => {
+    const tools: ToolEntry[] = [
+      {
+        id: "1",
+        name: "mcp__claude-in-chrome__tabs_create_mcp",
+        status: "running",
+        summary: "new tab",
+      },
+    ];
+    const line = stripAnsi(renderToolsLine(tools)!);
+    expect(line).toContain("chrome:tabs_create");
+    expect(line).not.toContain("mcp__claude-in-chrome");
+  });
+
+  test("MCP 工具名压缩展示（completed 聚合）", () => {
+    const tools: ToolEntry[] = [
+      { id: "1", name: "mcp__claude-in-chrome__tabs_create_mcp", status: "completed" },
+      { id: "2", name: "mcp__claude-in-chrome__tabs_create_mcp", status: "completed" },
+    ];
+    const line = stripAnsi(renderToolsLine(tools)!);
+    expect(line).toContain("chrome:tabs_create ×2");
+  });
+
   test("全部为 background 时前台 tools 行返回 null", () => {
     const tools: ToolEntry[] = [
       { id: "1", name: "Bash", status: "running", background: true },

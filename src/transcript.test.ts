@@ -142,6 +142,42 @@ describe("parseTranscript", () => {
     expect(result.tasks.length).toBe(0);
   });
 
+  test("EnterPlanMode 后 inPlanMode=true", async () => {
+    writeTranscript([
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "p1", name: "EnterPlanMode", input: {} }] } },
+    ]);
+    const result = await parseTranscript(TMP_FILE);
+    expect(result.inPlanMode).toBe(true);
+  });
+
+  test("ExitPlanMode 之后 inPlanMode=false", async () => {
+    writeTranscript([
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "p1", name: "EnterPlanMode", input: {} }] } },
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "p2", name: "ExitPlanMode", input: { plan: "..." } }] } },
+    ]);
+    const result = await parseTranscript(TMP_FILE);
+    expect(result.inPlanMode).toBe(false);
+  });
+
+  test("EnterPlanMode/ExitPlanMode 不进入 tools 行", async () => {
+    writeTranscript([
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "p1", name: "EnterPlanMode", input: {} }] } },
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "p2", name: "ExitPlanMode", input: { plan: "..." } }] } },
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "Read" }] } },
+    ]);
+    const result = await parseTranscript(TMP_FILE);
+    expect(result.tools.length).toBe(1);
+    expect(result.tools[0].name).toBe("Read");
+  });
+
+  test("无 plan mode 事件时 inPlanMode 为 false", async () => {
+    writeTranscript([
+      { type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "Read" }] } },
+    ]);
+    const result = await parseTranscript(TMP_FILE);
+    expect(result.inPlanMode).toBe(false);
+  });
+
   test("Bash 带 run_in_background:true 时标记为 background", async () => {
     writeTranscript([
       { type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "Bash", input: { command: "npm run dev", run_in_background: true } }] } },
