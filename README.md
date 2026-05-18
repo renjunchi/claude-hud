@@ -11,10 +11,13 @@ Current ▰▰▰▱▱▱▱▱▱▱ 32% ↻2 hr 35 min │ All ▰▰▰▰�
 
 ## 功能
 
-- **上下文窗口** — 实时使用百分比，颜色阈值（绿/黄/红）
+- **上下文窗口** — 实时使用百分比，颜色阈值（绿/黄/红）；≥90% 时追加 `↯` 提示自动压缩临近
+- **Plan Mode 指示** — 进入计划模式时模型名后显示黄色 `[PLAN]`
 - **Rate Limits** — 5 小时和 7 天用量，倒计时/重置时间
-- **Git 分支** — 从 `.git/HEAD` 读取当前分支
+- **Git 分支 + Worktree** — 从 `.git/HEAD` 读取当前分支；在 worktree 中追加 `[wt]` 标记
 - **活跃工具** — 运行中工具显示 Braille 旋转帧 + 输入摘要，已完成工具按次数聚合
+  - **Skill 名称展示** — `Skill: ad-2-auto-issue` 而非泛 `Skill`
+  - **MCP 工具压缩** — `mcp__claude-in-chrome__tabs_create_mcp` → `chrome:tabs_create`
 - **后台任务** — `run_in_background:true` 的 Bash / Agent 独立成行 `bg: ⠋ Bash: …`
 - **任务进度** — TaskCreate / TaskUpdate 派生 `Tasks ✓2/5 ↻1`
 - **多会话监控** — 检测本机其他活跃的 Claude Code 会话，可选状态提示行（长任务完成 / 出错）+ 终端铃声
