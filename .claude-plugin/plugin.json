@@ -1,7 +1,7 @@
 {
   "name": "cli-hud",
   "description": "Terminal statusline HUD for Claude Code — 上下文用量、工具活动、多会话监控、使用报告",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "任俊驰"
   },
