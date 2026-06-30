@@ -16,7 +16,7 @@
 
 - 仅在确认需求后修改文件，避免大范围重构
 - 出现冲突口径时，以本文档为准
-- **TDD 优先**：本项目 Test Profile 4/5 ⭐（`bun test` ~1s，14 测试文件 / 175 用例），改动 `src/` 时先写或更新对应 `*.test.ts`，再实现；提交前必须 `bun test` 全绿
+- **TDD 优先**：本项目 Test Profile 4/5 ⭐（`bun test` ~1s，16 测试文件 / 213 用例），改动 `src/` 时先写或更新对应 `*.test.ts`，再实现；提交前必须 `bun test` 全绿
 - 文件命名约定：每个 `src/foo.ts` 都有配对的 `src/foo.test.ts`；新增模块同步新增测试
 
 ## 项目约束（cli-hud 特有）

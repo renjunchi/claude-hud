@@ -239,11 +239,11 @@ Transcript JSONL 文件在会话期间持续增长，每次调用都需要解析
 }
 ```
 
-产物：`dist/cli-hud.js`（~19KB，minified，17 模块打包）
+产物：`dist/cli-hud.js`（~38KB，minified，19 模块打包）
 
 ## 10. 测试
 
-123 个测试覆盖 14 个测试文件：
+213 个测试覆盖 16 个测试文件：
 
 | 测试文件 | 覆盖模块 |
 |---------|---------|
@@ -258,6 +258,9 @@ Transcript JSONL 文件在会话期间持续增长，每次调用都需要解析
 | render/token-usage.test.ts | Token 格式化 |
 | render/sessions.test.ts | 会话行渲染 |
 | render/index.test.ts | 预设组合渲染 |
+| render/tasks.test.ts | Tasks / Background 行渲染 |
+| render/tool-name.test.ts | 工具名解析（MCP / Skill 等） |
+| render/tool-summary.test.ts | 工具行汇总 |
 | report/aggregate.test.ts | 数据聚合 |
 | report/html.test.ts | HTML 生成验证 |
 

@@ -114,8 +114,8 @@ echo '{ "preset": "essential" }' > ~/.claude/cli-hud.json
 # 在预设上覆盖个别开关
 echo '{ "preset": "full", "show": { "sessions": false } }' > ~/.claude/cli-hud.json
 
-# 完全自定义（未列出的元素一律不显示）
-echo '{ "show": { "model": true, "contextBar": true, "rateLimits": true } }' > ~/.claude/cli-hud.json
+# 完全自定义：custom 空白基底，未列出的元素一律不显示
+echo '{ "preset": "custom", "show": { "model": true, "contextBar": true, "rateLimits": true } }' > ~/.claude/cli-hud.json
 ```
 
 也可以用环境变量临时切换预设：
@@ -129,7 +129,7 @@ CLAUDE_HUD_PRESET=minimal
 1. 选定**基础预设** —— `CLAUDE_HUD_PRESET` 环境变量 > 配置文件 `preset` 字段 > 默认 `full`
 2. 应用 `show` **覆盖** —— 配置文件中 `show` 字段的每个键独立覆盖基础预设对应开关
 
-特殊值：`preset: "custom"` 表示空白基础（所有开关默认 false），等价于不设 `preset` 而仅给 `show`。
+特殊值：`preset: "custom"` 表示空白基础（所有开关默认 false），仅显示 `show` 中显式置 `true` 的元素。注意：不设 `preset` 而仅给 `show` 时，基础是 `full`（未列出的元素按 `full` 默认显示），与 `custom` **并不等价**。
 
 ### 内置预设对照
 
