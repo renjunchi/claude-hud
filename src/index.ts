@@ -5,6 +5,7 @@ import { render } from "./render/index";
 import { setup, disable } from "./cli/setup";
 import { report } from "./cli/report";
 import { ensureWatcher } from "./watcher";
+import { detectTermWidth } from "./term-width";
 import type { PresetConfig, RenderContext, StdinData } from "./types";
 
 /** Statusline 热路径核心：transcript 解析 + render。无 stdin/stdout 副作用，便于性能基准测试。 */
@@ -55,8 +56,7 @@ async function main(): Promise<void> {
   // Read stdin JSON from Claude Code
   const stdin = await readStdin();
 
-  // Detect terminal width (stderr since stdout is piped)
-  const termWidth = process.stderr.columns || process.stdout.columns || 120;
+  const termWidth = detectTermWidth();
 
   const output = await resolveAndRender(stdin, presetConfig, termWidth);
   console.log(output);
