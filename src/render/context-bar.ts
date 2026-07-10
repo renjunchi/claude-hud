@@ -6,11 +6,27 @@ import { calcOutputSpeed, formatSpeed } from "./token-usage";
 const FILLED = "\u25b0"; // ▰
 const EMPTY = "\u25b1";  // ▱
 
+/** 终端不宽于此值时省略进度条，只保留百分比 */
+const NARROW_TERM_WIDTH = 60;
+const WIDE_TERM_WIDTH = 100;
+
+/** 返回 0 表示终端过窄，不渲染进度条 */
+function barWidthFor(termWidth: number, wide: number, normal: number): number {
+  if (termWidth <= NARROW_TERM_WIDTH) return 0;
+  return termWidth > WIDE_TERM_WIDTH ? wide : normal;
+}
+
 function renderBar(percent: number, width: number): string {
+  if (width <= 0) return "";
   const filled = Math.round((percent / 100) * width);
   const empty = width - filled;
   const clr = contextColor(percent);
   return color(FILLED.repeat(filled), clr) + color(EMPTY.repeat(empty), dim);
+}
+
+/** bar 为空时不留下多余空格 */
+function barSegment(label: string, bar: string, value: string): string {
+  return bar ? `${label} ${bar} ${value}` : `${label} ${value}`;
 }
 
 /** Render the main session line: [Model] | Context bar | ⎇ branch */
@@ -40,11 +56,10 @@ export async function renderSessionLine(ctx: RenderContext): Promise<string> {
   // Context bar
   if (preset.showContextBar) {
     const percent = getContextPercent(ctx.stdin);
-    const barWidth = ctx.termWidth > 100 ? 15 : ctx.termWidth > 60 ? 10 : 6;
-    const bar = renderBar(percent, barWidth);
+    const bar = renderBar(percent, barWidthFor(ctx.termWidth, 15, 10));
     const clr = contextColor(percent);
     const compactHint = percent >= 90 ? color(" ↯", clr) : "";
-    parts.push(`${color("Context", dim)} ${bar} ${color(`${percent}%`, clr)}${compactHint}`);
+    parts.push(barSegment(color("Context", dim), bar, color(`${percent}%`, clr) + compactHint));
   }
 
   // Git branch (+ worktree 标识)
@@ -79,21 +94,21 @@ export function renderRateLimitsLine(ctx: RenderContext): string | null {
   const rl7d = getRateLimit7d(ctx.stdin);
   if (!rl5h && !rl7d) return null;
 
-  const barWidth = ctx.termWidth > 100 ? 10 : 6;
+  const barWidth = barWidthFor(ctx.termWidth, 10, 6);
   const parts: string[] = [];
 
   {
     const r = rl5h ?? { percent: 0, resetsAt: null };
     const bar = renderBar(r.percent, barWidth);
     const resetStr = r.resetsAt ? ` ↻${formatResetCountdown(r.resetsAt)}` : "";
-    parts.push(`${color("Current", dim)} ${bar} ${r.percent}%${color(resetStr, gray)}`);
+    parts.push(barSegment(color("Current", dim), bar, `${r.percent}%${color(resetStr, gray)}`));
   }
 
   {
     const r = rl7d ?? { percent: 0, resetsAt: null };
     const bar = renderBar(r.percent, barWidth);
     const resetStr = r.resetsAt ? ` ↻${formatResetAbsolute(r.resetsAt)}` : "";
-    parts.push(`${color("All", dim)} ${bar} ${r.percent}%${color(resetStr, gray)}`);
+    parts.push(barSegment(color("All", dim), bar, `${r.percent}%${color(resetStr, gray)}`));
   }
 
   return parts.join(color(" │ ", gray));

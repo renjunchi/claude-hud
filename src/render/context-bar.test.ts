@@ -45,10 +45,34 @@ describe("renderSessionLine", () => {
     expect(line).not.toContain("my-project");
   });
 
+  /** 数出进度条格子数（▰ + ▱） */
+  const countCells = (line: string) => (line.match(/[▰▱]/g) ?? []).length;
+
   test("uses narrower bar for small terminals", async () => {
     const wide = stripAnsi(await renderSessionLine(makeCtx({ termWidth: 120 })));
-    const narrow = stripAnsi(await renderSessionLine(makeCtx({ termWidth: 50 })));
-    expect(wide.length).toBeGreaterThan(narrow.length);
+    const narrow = stripAnsi(await renderSessionLine(makeCtx({ termWidth: 80 })));
+    expect(countCells(wide)).toBe(15);
+    expect(countCells(narrow)).toBe(10);
+  });
+
+  test("终端过窄时省略进度条，只保留百分比", async () => {
+    const line = stripAnsi(await renderSessionLine(makeCtx({ termWidth: 50 })));
+    expect(line).toContain("Context 4%");
+    expect(countCells(line)).toBe(0);
+  });
+
+  test("进度条显隐边界在 60/61 列", async () => {
+    expect(countCells(stripAnsi(await renderSessionLine(makeCtx({ termWidth: 60 }))))).toBe(0);
+    expect(countCells(stripAnsi(await renderSessionLine(makeCtx({ termWidth: 61 }))))).toBe(10);
+  });
+
+  test("终端过窄时 ↯ 压缩提示仍保留", async () => {
+    const ctx = makeCtx({
+      termWidth: 50,
+      stdin: { model: { display_name: "Test" }, cwd: "/tmp", context_window: { used_percentage: 92 } },
+    });
+    const line = stripAnsi(await renderSessionLine(ctx));
+    expect(line).toContain("Context 92% ↯");
   });
 
   test("shows git branch when in a git repo", async () => {
@@ -159,6 +183,13 @@ describe("renderRateLimitsLine", () => {
     expect(line).toContain("15%");
     expect(line).toContain("All");
     expect(line).toContain("5%");
+  });
+
+  test("终端过窄时省略进度条", () => {
+    const line = stripAnsi(renderRateLimitsLine(makeCtx({ termWidth: 50 }))!);
+    expect(line).toContain("Current 15%");
+    expect(line).not.toContain("▰");
+    expect(line).not.toContain("▱");
   });
 
   test("shows countdown for Current", () => {
