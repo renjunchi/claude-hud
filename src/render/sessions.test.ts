@@ -41,6 +41,25 @@ describe("renderSessionsLine", () => {
     expect(line).toContain("+4 sessions:");
     expect(line).not.toContain("a4");
   });
+
+  test("终端过窄时只保留计数，不展开项目名与时间", () => {
+    const sessions: SessionInfo[] = [
+      { sessionId: "a", project: "claude-hud", lastActivity: Date.now() },
+      { sessionId: "b", project: "website", lastActivity: Date.now() - 2 * 60_000 },
+    ];
+    const line = stripAnsi(renderSessionsLine(sessions, 50)!);
+    expect(line).toBe("+2 sessions");
+    expect(line).not.toContain("claude-hud");
+    expect(line).not.toContain("ago");
+  });
+
+  test("展开与否的边界在 60/61 列", () => {
+    const sessions: SessionInfo[] = [
+      { sessionId: "a", project: "app-1", lastActivity: Date.now() },
+    ];
+    expect(stripAnsi(renderSessionsLine(sessions, 60)!)).toBe("+1 session");
+    expect(stripAnsi(renderSessionsLine(sessions, 61)!)).toContain("app-1");
+  });
 });
 
 describe("renderNotificationsLine", () => {

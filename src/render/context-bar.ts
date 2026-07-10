@@ -2,13 +2,10 @@ import type { RenderContext } from "../types";
 import { getContextPercent, getModelName, getProjectName, getGitInfo, getRateLimit5h, getRateLimit7d, formatResetCountdown, formatResetAbsolute } from "../stdin";
 import { color, contextColor, bold, cyan, gray, dim, yellow } from "./colors";
 import { calcOutputSpeed, formatSpeed } from "./token-usage";
+import { NARROW_TERM_WIDTH, WIDE_TERM_WIDTH } from "../term-width";
 
 const FILLED = "\u25b0"; // ▰
 const EMPTY = "\u25b1";  // ▱
-
-/** 终端不宽于此值时省略进度条，只保留百分比 */
-const NARROW_TERM_WIDTH = 60;
-const WIDE_TERM_WIDTH = 100;
 
 /** 返回 0 表示终端过窄，不渲染进度条 */
 function barWidthFor(termWidth: number, wide: number, normal: number): number {

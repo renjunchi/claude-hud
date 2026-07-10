@@ -45,7 +45,7 @@ export async function render(ctx: RenderContext): Promise<string> {
   if (preset.showSessions || preset.showNotifications) {
     sessions = await safe(() => scanActiveSessions(ctx.stdin.transcript_path));
     if (sessions && preset.showSessions) {
-      const sessionsLine = renderSessionsLine(sessions);
+      const sessionsLine = renderSessionsLine(sessions, ctx.termWidth);
       if (sessionsLine) lines.push(sessionsLine);
     }
   }
