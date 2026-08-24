@@ -1,6 +1,6 @@
 # cli-hud
 
-[Claude Code](https://claude.ai/code) 终端状态栏 HUD。实时显示上下文窗口、Rate Limits、活跃工具和多会话监控。
+[Claude Code](https://claude.ai/code) 终端状态栏 HUD，并提供 OpenAI Codex rollout adapter。显示上下文窗口、Rate Limits、活跃工具和任务进度。
 
 ```
 [Opus 4.6 (1M context)] │ Context ▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱ 15% │ ⎇ main
@@ -102,6 +102,24 @@ bun run src/index.ts disable
 | `cli-hud disable` | 关闭 statusline，恢复 Claude Code 原生状态栏 |
 | `cli-hud report [--no-open]` | 生成 HTML 用量报告，默认自动打开浏览器 |
 | `cli-hud watch start\|stop\|status` | 管理后台 watcher（跨会话扫描与铃声） |
+| `cli-hud codex --transcript <rollout.jsonl>` | 解析并渲染一份 Codex 会话快照 |
+
+### OpenAI Codex adapter（实验性）
+
+Codex adapter 将 rollout JSONL 中的模型、context、rate limits、token、工具调用和
+`update_plan` 映射到 cli-hud 的统一渲染模型：
+
+```bash
+cli-hud codex --transcript ~/.codex/sessions/YYYY/MM/DD/rollout-....jsonl
+```
+
+该命令是 one-shot 输出，可用于 tmux、脚本或其他外部展示。Codex 当前的
+`[tui].status_line` 只接受内置 item identifiers，不支持 Claude Code 式的外部命令
+renderer，因此 cli-hud 暂时不能直接替换 Codex TUI 底栏。Codex rollout schema 也不是
+稳定公共接口；adapter 会忽略未知事件和损坏行，但 Codex 升级后仍可能需要同步适配。
+
+Codex 模式不会启动或扫描 Claude 专属的多会话 watcher；其他显示项仍沿用
+`~/.claude/cli-hud.json` 中的 preset 配置。
 
 ## 配置
 
@@ -155,7 +173,7 @@ CLAUDE_HUD_PRESET=minimal
 ## 开发
 
 ```bash
-bun test          # 运行测试（~1s，213 用例）
+bun test          # 运行测试（~1s，237 用例）
 bun run test:perf # statusline 主路径性能护栏（重构 transcript/sessions 等热路径后必跑）
 bun run build     # 构建 dist/cli-hud.js
 ```

@@ -1,4 +1,4 @@
-/** Raw JSON from Claude Code stdin */
+/** Renderer input: Claude Code provides this shape directly; adapters normalize into it. */
 export interface StdinData {
   transcript_path?: string;
   cwd?: string;

@@ -1,3 +1,5 @@
+#!/usr/bin/env bun
+
 import { readStdin } from "./stdin";
 import { parseTranscript } from "./transcript";
 import { resolvePresetConfig } from "./presets";
@@ -44,6 +46,14 @@ async function main(): Promise<void> {
     }
     return;
   }
+  if (arg === "codex") {
+    const { parseCodexArgs, renderCodexSnapshot } = await import("./cli/codex");
+    const { transcriptPath } = parseCodexArgs(process.argv.slice(3));
+    const presetConfig = await resolvePresetConfig();
+    const output = await renderCodexSnapshot(transcriptPath, presetConfig, detectTermWidth());
+    console.log(output);
+    return;
+  }
 
   // 先解析 preset，决定是否需要后台 watcher（避免关 UI 不等于关行为）
   const presetConfig = await resolvePresetConfig();
@@ -65,4 +75,7 @@ async function main(): Promise<void> {
 main().catch((err) => {
   // Log to stderr so it doesn't interfere with stdout (which Claude Code reads)
   console.error(`[cli-hud] ${err?.message ?? err}`);
+  // Codex CLI callers need a reliable failure signal. Keep the no-argument
+  // statusline path best-effort so a transient failure does not disrupt Claude Code.
+  if (process.argv[2] === "codex") process.exitCode = 1;
 });

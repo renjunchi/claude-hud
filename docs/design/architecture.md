@@ -4,7 +4,7 @@ doc_type: design
 version: 2.0.0
 status: active
 created: 2026-03-29
-updated: 2026-03-29
+updated: 2026-08-05
 authors:
   - 任俊驰
 tags:
@@ -66,6 +66,22 @@ cli-hud report
 ~/.claude/cli-hud-report.html → 浏览器打开
 ```
 
+### 2.3 Codex adapter（one-shot）
+
+```
+Codex rollout JSONL
+       │
+       ▼
+adapters/codex.ts ──► StdinData + TranscriptData ──► render/index.ts
+       ▲
+cli-hud codex --transcript <path>
+```
+
+adapter 防御性解析 `session_meta`、`turn_context`、`event_msg/token_count` 和
+`response_item`，并复用现有渲染层。Codex 模式关闭 Claude 专属的 sessions 与
+notifications 扫描。Codex TUI 的 `[tui].status_line` 不支持外部 renderer，因此这里不做
+TUI footer 注入。
+
 每次 statusline 调用为独立进程，无持久状态。唯一的"状态"是 transcript 缓存文件。
 
 ## 2. 模块结构
@@ -73,6 +89,8 @@ cli-hud report
 ```
 src/
   index.ts              # 入口：CLI 路由（statusline / setup / report）
+  adapters/
+    codex.ts            # Codex rollout JSONL → 统一渲染模型
   types.ts              # 所有类型定义
   stdin.ts              # stdin JSON 解析，context%、model、rate limits、git branch
   transcript.ts         # Transcript JSONL 解析（tools/agents/token usage），mtime 缓存
@@ -87,6 +105,7 @@ src/
     sessions.ts         # 其他活跃会话显示
     colors.ts           # ANSI 颜色工具函数
   cli/
+    codex.ts            # `cli-hud codex --transcript` 命令
     setup.ts            # `cli-hud setup` 命令
     report.ts           # `cli-hud report` 命令
   report/
@@ -212,6 +231,7 @@ Transcript JSONL 文件在会话期间持续增长，每次调用都需要解析
 | `cli-hud setup` | 自动配置 Claude Code 的 statusline 设置 |
 | `cli-hud report` | 生成 HTML 用量报告并打开浏览器 |
 | `cli-hud report --no-open` | 仅生成报告不打开 |
+| `cli-hud codex --transcript <path>` | 渲染 Codex rollout 快照 |
 
 ## 8. HTML 报告
 
@@ -239,11 +259,11 @@ Transcript JSONL 文件在会话期间持续增长，每次调用都需要解析
 }
 ```
 
-产物：`dist/cli-hud.js`（~38KB，minified，19 模块打包）
+产物：`dist/cli-hud.js`（~44KB，minified）
 
 ## 10. 测试
 
-213 个测试覆盖 16 个测试文件：
+237 个测试覆盖 19 个测试文件（另有 3 个性能用例）：
 
 | 测试文件 | 覆盖模块 |
 |---------|---------|
@@ -263,6 +283,8 @@ Transcript JSONL 文件在会话期间持续增长，每次调用都需要解析
 | render/tool-summary.test.ts | 工具行汇总 |
 | report/aggregate.test.ts | 数据聚合 |
 | report/html.test.ts | HTML 生成验证 |
+| adapters/codex.test.ts | Codex rollout 映射与容错 |
+| cli/codex.test.ts | Codex CLI 参数与快照渲染 |
 
 ## 11. 关键设计决策
 
